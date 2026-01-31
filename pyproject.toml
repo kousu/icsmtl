@@ -7,6 +7,10 @@ name = "icsmtl"
 version = "0.1.0"
 description = "A collection of scrapers that convert common web sources into .ics files"
 requires-python = ">=3.10"
+dependencies = [
+    "beautifulsoup4",
+    "lxml",
+]
 
 [project.scripts]
 # example-script = "icsmtl.example:main"
