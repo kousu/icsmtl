@@ -1,14 +1,21 @@
 import argparse
+import glob
 import os
 import re
+import traceback
+import unicodedata
 from datetime import date, timedelta
 
 import requests
 from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
+from icsmtl.flyer import extract_event_from_flyer
+from icsmtl.util import parse_ics
+
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
+DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events", "mtlrave_telegram")
 USER_AGENT = "icsmtl/0.1"
 
 
@@ -23,7 +30,14 @@ def extract_image_url(style):
     return m.group(1) if m else None
 
 
-def fetch_day(session, d):
+def sanitize_title(title):
+    """Sanitize a title for use in filenames."""
+    name = unicodedata.normalize("NFKD", title)
+    name = name.encode("ascii", "ignore").decode("ascii")
+    return name.replace(" ", "_").replace("/", "_")
+
+
+def fetch_day(session, d, output_dir):
     """Fetch and cache Telegram posts for a given date."""
     tag = date_tag(d)
     url = f"{SEARCH_URL}?q=%23{tag}"
@@ -67,23 +81,55 @@ def fetch_day(session, d):
         post_dir = os.path.join(CACHE_DIR, post_id)
         flyer_path = os.path.join(post_dir, f"flyer{ext}")
 
-        if os.path.exists(flyer_path):
-            print(f"  Post {post_id}: cached, skipping")
+        # Phase 1: Download flyer if not cached
+        if not os.path.exists(flyer_path):
+            caption_el = post.select_one("div.tgme_widget_message_text")
+            caption = caption_el.get_text() if caption_el else ""
+
+            os.makedirs(post_dir, exist_ok=True)
+            print(f"  Post {post_id}: downloading flyer{ext}")
+            img_resp = session.get(img_url, timeout=30)
+            img_resp.raise_for_status()
+            with open(flyer_path, "wb") as f:
+                f.write(img_resp.content)
+            with open(os.path.join(post_dir, "caption.txt"), "w", encoding="utf-8") as f:
+                f.write(caption)
+
+        # Phase 2: Extract .ics from flyer
+        # Find actual flyer file (handles any extension)
+        flyer_files = glob.glob(os.path.join(post_dir, "flyer.*"))
+        if not flyer_files:
+            print(f"  Post {post_id}: no flyer file found, skipping")
+            continue
+        flyer_path = flyer_files[0]
+
+        event_ics_path = os.path.join(post_dir, "event.ics")
+        exception_log_path = os.path.join(post_dir, "exception.log")
+
+        if os.path.exists(exception_log_path):
+            print(f"  Post {post_id}: previous extraction failed, skipping")
             continue
 
-        # Extract caption
-        caption_el = post.select_one("div.tgme_widget_message_text")
-        caption = caption_el.get_text() if caption_el else ""
+        if os.path.exists(event_ics_path):
+            with open(event_ics_path, "r", encoding="utf-8") as f:
+                ics_content = f.read()
+            title, date_str = parse_ics(ics_content)
+        else:
+            try:
+                title, date_str, ics_content = extract_event_from_flyer(flyer_path)
+            except Exception:
+                with open(exception_log_path, "w", encoding="utf-8") as f:
+                    f.write(traceback.format_exc())
+                print(f"  Post {post_id}: extraction failed, see {exception_log_path}")
+                continue
+            with open(event_ics_path, "w", encoding="utf-8") as f:
+                f.write(ics_content)
 
-        # Download image and write caption
-        os.makedirs(post_dir, exist_ok=True)
-        print(f"  Post {post_id}: downloading flyer{ext}")
-        img_resp = session.get(img_url, timeout=30)
-        img_resp.raise_for_status()
-        with open(flyer_path, "wb") as f:
-            f.write(img_resp.content)
-        with open(os.path.join(post_dir, "caption.txt"), "w", encoding="utf-8") as f:
-            f.write(caption)
+        filename = f"{date_str}-{sanitize_title(title)}.ics"
+        output_path = os.path.join(output_dir, filename)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(ics_content)
+        print(f"  Post {post_id}: wrote {filename}")
 
 
 def main():
@@ -102,6 +148,11 @@ def main():
         default=None,
         help="End date (YYYY-MM-DD, default: start + 3 months)",
     )
+    parser.add_argument(
+        "-o", "--output-dir",
+        default=DEFAULT_OUTPUT_DIR,
+        help=f"Output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
+    )
     args = parser.parse_args()
     if args.end is None:
         args.end = args.start + timedelta(days=90)
@@ -109,9 +160,11 @@ def main():
     session = requests.Session()
     session.headers["User-Agent"] = USER_AGENT
 
+    os.makedirs(args.output_dir, exist_ok=True)
+
     d = args.start
     while d <= args.end:
-        fetch_day(session, d)
+        fetch_day(session, d, args.output_dir)
         d += timedelta(days=1)
 
     print(f"\nCache directory: {CACHE_DIR}")
