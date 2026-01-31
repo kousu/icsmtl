@@ -1,5 +1,6 @@
 import argparse
 import glob
+import hashlib
 import os
 import re
 import traceback
@@ -15,6 +16,8 @@ from icsmtl.util import parse_ics
 
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
+FLYERS_DIR = os.path.join(CACHE_DIR, "flyers")
+OCR_DIR = os.path.join(CACHE_DIR, "ocr")
 DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events", "mtlrave_telegram")
 USER_AGENT = "icsmtl/0.1"
 
@@ -90,8 +93,13 @@ def fetch_day(session, d, output_dir):
             print(f"  Post {post_id}: downloading flyer{ext}")
             img_resp = session.get(img_url, timeout=30)
             img_resp.raise_for_status()
-            with open(flyer_path, "wb") as f:
-                f.write(img_resp.content)
+            img_data = img_resp.content
+            flyer_hash = hashlib.sha256(img_data).hexdigest()
+            canonical_flyer = os.path.join(FLYERS_DIR, f"{flyer_hash}{ext}")
+            if not os.path.exists(canonical_flyer):
+                with open(canonical_flyer, "wb") as f:
+                    f.write(img_data)
+            os.symlink(os.path.relpath(canonical_flyer, post_dir), flyer_path)
             with open(os.path.join(post_dir, "caption.txt"), "w", encoding="utf-8") as f:
                 f.write(caption)
 
@@ -103,27 +111,34 @@ def fetch_day(session, d, output_dir):
             continue
         flyer_path = flyer_files[0]
 
-        event_ics_path = os.path.join(post_dir, "event.ics")
-        exception_log_path = os.path.join(post_dir, "exception.log")
+        with open(flyer_path, "rb") as f:
+            flyer_hash = hashlib.sha256(f.read()).hexdigest()
 
-        if os.path.exists(exception_log_path):
+        ocr_ics_path = os.path.join(OCR_DIR, f"{flyer_hash}.ics")
+        ocr_exc_path = os.path.join(OCR_DIR, f"{flyer_hash}.exc")
+        event_ics_link = os.path.join(post_dir, "event.ics")
+
+        if os.path.exists(ocr_exc_path):
             print(f"  Post {post_id}: previous extraction failed, skipping")
             continue
 
-        if os.path.exists(event_ics_path):
-            with open(event_ics_path, "r", encoding="utf-8") as f:
+        if os.path.exists(ocr_ics_path):
+            with open(ocr_ics_path, "r", encoding="utf-8") as f:
                 ics_content = f.read()
             title, date_str = parse_ics(ics_content)
+            if not os.path.exists(event_ics_link):
+                os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
         else:
             try:
                 title, date_str, ics_content = extract_event_from_flyer(flyer_path)
             except Exception:
-                with open(exception_log_path, "w", encoding="utf-8") as f:
+                with open(ocr_exc_path, "w", encoding="utf-8") as f:
                     f.write(traceback.format_exc())
-                print(f"  Post {post_id}: extraction failed, see {exception_log_path}")
+                print(f"  Post {post_id}: extraction failed, see {ocr_exc_path}")
                 continue
-            with open(event_ics_path, "w", encoding="utf-8") as f:
+            with open(ocr_ics_path, "w", encoding="utf-8") as f:
                 f.write(ics_content)
+            os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
 
         filename = f"{date_str}-{sanitize_title(title)}.ics"
         output_path = os.path.join(output_dir, filename)
@@ -161,6 +176,8 @@ def main():
     session.headers["User-Agent"] = USER_AGENT
 
     os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(FLYERS_DIR, exist_ok=True)
+    os.makedirs(OCR_DIR, exist_ok=True)
 
     d = args.start
     while d <= args.end:
