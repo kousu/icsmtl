@@ -1,3 +1,4 @@
+import argparse
 import os
 import unicodedata
 
@@ -6,7 +7,7 @@ from bs4 import BeautifulSoup
 
 
 FEED_URL = "https://cultmtl.com?feed=event_feed"
-OUTPUT_DIR = os.path.join(os.getcwd(), "events", "cultmtl")
+DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events", "cultmtl")
 PRODID = "-//icsmtl//cultmtl//EN"
 
 
@@ -72,6 +73,16 @@ def make_ics(summary, description, url, dtstart, dtend):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Scrape events from the Cult MTL RSS feed into .ics files"
+    )
+    parser.add_argument(
+        "-o", "--output-dir",
+        default=DEFAULT_OUTPUT_DIR,
+        help=f"Output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
+    )
+    args = parser.parse_args()
+
     resp = requests.get(FEED_URL, timeout=30, headers={"User-Agent": "icsmtl/0.1"})
     resp.raise_for_status()
 
@@ -82,7 +93,7 @@ def main():
         print("No events found in feed.")
         return
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
 
     count = 0
     for item in items:
@@ -115,14 +126,14 @@ def main():
 
         ics_text = make_ics(title_text, description, link_text, dtstart, dtend)
         filename = make_filename(dtstart, title_text)
-        filepath = os.path.join(OUTPUT_DIR, filename)
+        filepath = os.path.join(args.output_dir, filename)
 
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(ics_text)
 
         count += 1
 
-    print(f"Wrote {count} .ics files to {OUTPUT_DIR}")
+    print(f"Wrote {count} .ics files to {args.output_dir}")
 
 
 if __name__ == "__main__":
