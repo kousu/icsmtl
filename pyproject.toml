@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icsmtl"
+version = "0.1.0"
+description = "A collection of scrapers that convert common web sources into .ics files"
+requires-python = ">=3.10"
+
+[project.scripts]
+# example-script = "icsmtl.example:main"
