@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 
 FEED_URL = "https://cultmtl.com?feed=event_feed"
-DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events", "cultmtl")
+DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events")
 PRODID = "-//icsmtl//cultmtl//EN"
 
 
@@ -82,6 +82,7 @@ def main():
         help=f"Output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
     )
     args = parser.parse_args()
+    args.output_dir = os.path.join(args.output_dir, "cultmtl")
 
     resp = requests.get(FEED_URL, timeout=30, headers={"User-Agent": "icsmtl/0.1"})
     resp.raise_for_status()

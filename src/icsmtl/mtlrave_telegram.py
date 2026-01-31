@@ -18,7 +18,7 @@ SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
 FLYERS_DIR = os.path.join(CACHE_DIR, "flyers")
 OCR_DIR = os.path.join(CACHE_DIR, "ocr")
-DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events", "mtlrave_telegram")
+DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events")
 USER_AGENT = "icsmtl/0.1"
 
 
@@ -169,6 +169,7 @@ def main():
         help=f"Output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
     )
     args = parser.parse_args()
+    args.output_dir = os.path.join(args.output_dir, "mtlrave_telegram")
     if args.end is None:
         args.end = args.start + timedelta(days=90)
 
