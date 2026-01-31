@@ -10,8 +10,10 @@ requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4",
     "lxml",
+    "pyxdg",
     "requests",
 ]
 
 [project.scripts]
 cultmtl = "icsmtl.cultmtl:main"
+mtlrave-telegram = "icsmtl.mtlrave_telegram:main"
