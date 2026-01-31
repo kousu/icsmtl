@@ -10,7 +10,8 @@ requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4",
     "lxml",
+    "requests",
 ]
 
 [project.scripts]
-# example-script = "icsmtl.example:main"
+cultmtl = "icsmtl.cultmtl:main"
