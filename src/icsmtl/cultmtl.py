@@ -44,12 +44,13 @@ def format_datetime(dt_str):
     return dt_str.replace("-", "").replace(" ", "T").replace(":", "")
 
 
-def make_filename(title):
-    """NFKD-normalize, drop non-ASCII, replace spaces and / with _, append .ics."""
+def make_filename(dtstart, title):
+    """Build filename as {YYYY-MM-DD}-{sanitized_title}.ics."""
+    date_prefix = dtstart[:10]  # '2026-03-08 18:30:00' -> '2026-03-08'
     name = unicodedata.normalize("NFKD", title)
     name = name.encode("ascii", "ignore").decode("ascii")
     name = name.replace(" ", "_").replace("/", "_")
-    return name + ".ics"
+    return f"{date_prefix}-{name}.ics"
 
 
 def make_ics(summary, description, url, dtstart, dtend):
@@ -113,7 +114,7 @@ def main():
         description = "\n\n".join(desc_parts)
 
         ics_text = make_ics(title_text, description, link_text, dtstart, dtend)
-        filename = make_filename(title_text)
+        filename = make_filename(dtstart, title_text)
         filepath = os.path.join(OUTPUT_DIR, filename)
 
         with open(filepath, "w", encoding="utf-8") as f:
