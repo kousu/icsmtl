@@ -75,7 +75,7 @@ def fetch_day(session, d, output_dir):
                 img_url = extract_image_url(video_el.get("style"))
 
         if not img_url:
-            print(f"  Post {post_id}: no image, skipping")
+            print(f"  Post {SEARCH_URL}/{post_id}: no image, skipping")
             continue
 
         # Determine file extension from URL
@@ -90,7 +90,7 @@ def fetch_day(session, d, output_dir):
             caption = caption_el.get_text() if caption_el else ""
 
             os.makedirs(post_dir, exist_ok=True)
-            print(f"  Post {post_id}: downloading flyer{ext}")
+            print(f"  Post {SEARCH_URL}/{post_id}: downloading flyer{ext}")
             img_resp = session.get(img_url, timeout=30)
             img_resp.raise_for_status()
             img_data = img_resp.content
@@ -107,7 +107,7 @@ def fetch_day(session, d, output_dir):
         # Find actual flyer file (handles any extension)
         flyer_files = glob.glob(os.path.join(post_dir, "flyer.*"))
         if not flyer_files:
-            print(f"  Post {post_id}: no flyer file found, skipping")
+            print(f"  Post {SEARCH_URL}/{post_id}: no flyer file found, skipping")
             continue
         flyer_path = flyer_files[0]
 
@@ -119,7 +119,7 @@ def fetch_day(session, d, output_dir):
         event_ics_link = os.path.join(post_dir, "event.ics")
 
         if os.path.exists(ocr_exc_path):
-            print(f"  Post {post_id}: previous extraction failed, skipping")
+            print(f"  Post {SEARCH_URL}/{post_id}: previous extraction failed, skipping")
             continue
 
         if os.path.exists(ocr_ics_path):
@@ -134,7 +134,7 @@ def fetch_day(session, d, output_dir):
             except Exception:
                 with open(ocr_exc_path, "w", encoding="utf-8") as f:
                     f.write(traceback.format_exc())
-                print(f"  Post {post_id}: extraction failed, see {ocr_exc_path}")
+                print(f"  Post {SEARCH_URL}/{post_id}: extraction failed, see {ocr_exc_path}")
                 continue
             with open(ocr_ics_path, "w", encoding="utf-8") as f:
                 f.write(ics_content)
@@ -144,7 +144,7 @@ def fetch_day(session, d, output_dir):
         output_path = os.path.join(output_dir, filename)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(ics_content)
-        print(f"  Post {post_id}: wrote {filename}")
+        print(f"  Post {SEARCH_URL}/{post_id}: wrote {filename}")
 
 
 def main():
