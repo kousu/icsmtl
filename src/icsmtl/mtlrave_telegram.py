@@ -99,6 +99,9 @@ def fetch_day(session, d, output_dir):
             if not os.path.exists(canonical_flyer):
                 with open(canonical_flyer, "wb") as f:
                     f.write(img_data)
+
+            if os.path.lexists(flyer_path): # ln -s --force
+                os.remove(flyer_path)
             os.symlink(os.path.relpath(canonical_flyer, post_dir), flyer_path)
             with open(os.path.join(post_dir, "caption.txt"), "w", encoding="utf-8") as f:
                 f.write(caption)
@@ -138,6 +141,9 @@ def fetch_day(session, d, output_dir):
                 continue
             with open(ocr_ics_path, "w", encoding="utf-8") as f:
                 f.write(ics_content)
+
+            if os.path.lexists(event_ics_link): # ln -s --force
+                os.remove(event_ics_link)
             os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
 
         filename = f"{date_str}-{sanitize_title(title)}.ics"
