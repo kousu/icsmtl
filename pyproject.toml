@@ -15,5 +15,6 @@ dependencies = [
 ]
 
 [project.scripts]
+catics = "icsmtl.catics:main"
 cultmtl = "icsmtl.cultmtl:main"
 mtlrave-telegram = "icsmtl.mtlrave_telegram:main"
