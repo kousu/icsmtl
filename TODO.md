@@ -6,6 +6,8 @@
 - [ ] cultmtl: remove "The post ... first appeared on CultMTL"
 - [ ] event de-duplicator
 - [ ] consider embedding flyers into events via base64 URL encoding
+- [ ] meetup: "The YD Hootenany" isn't being scraped
+- [ ] preserve rich text in X-ALT-DESC;FMTTYPE=text/html field
 
 ## Sources
 
