@@ -41,6 +41,7 @@ def main():
         title = item.find("title")
         link = item.find("link")
         content = item.find("content:encoded") or item.find("encoded")
+        location = item.find("event_listing:location") or item.find("location")
         start_date = item.find("event_listing:start_date") or item.find("start_date")
         end_date = item.find("event_listing:end_date") or item.find("end_date")
         ticket_price = item.find("event_listing:ticket_price") or item.find("ticket_price")
@@ -63,7 +64,7 @@ def main():
 
         description = "\n\n".join(desc_parts)
 
-        ics_text = make_ics(title_text, description, dtstart, dtend, prodid=PRODID, tzid="America/Montreal", url=link_text or None)
+        ics_text = make_ics(title_text, description, dtstart, dtend, prodid=PRODID, location=location, tzid="America/Montreal", url=link_text or None)
         filename = make_filename(dtstart, title_text)
         filepath = os.path.join(args.output_dir, filename)
 
