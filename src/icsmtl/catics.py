@@ -1,5 +1,4 @@
 import argparse
-import glob
 import re
 import sys
 
@@ -22,8 +21,8 @@ def main():
     )
     parser.add_argument(
         "inputs",
-        nargs="+",
-        help="Input .ics files or glob patterns",
+        nargs="*",
+        help="Input .ics files",
     )
     parser.add_argument(
         "-o", "--output",
@@ -32,27 +31,20 @@ def main():
     )
     args = parser.parse_args()
 
-    # Expand globs (shells normally do this, but support it explicitly too)
-    paths = []
-    for pattern in args.inputs:
-        expanded = sorted(glob.glob(pattern))
-        if expanded:
-            paths.extend(expanded)
-        else:
-            print(f"Warning: no files matched {pattern!r}", file=sys.stderr)
+    paths = args.inputs
 
-    if not paths:
-        print("No input files.", file=sys.stderr)
-        sys.exit(1)
+    # if not paths:
+    #     print("No input files.", file=sys.stderr)
+    #     sys.exit(1)
 
     vevents = []
     for path in paths:
         with open(path, "r", encoding="utf-8") as f:
             vevents.extend(extract_vevents(f.read()))
 
-    if not vevents:
-        print("No VEVENT blocks found in input files.", file=sys.stderr)
-        sys.exit(1)
+    # if not vevents:
+    #     print("No VEVENT blocks found in input files.", file=sys.stderr)
+    #     sys.exit(1)
 
     lines = [
         "BEGIN:VCALENDAR\r\n",
