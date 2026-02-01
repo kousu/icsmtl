@@ -196,8 +196,6 @@ def main():
         fetch_day(session, d, args.output_dir)
         d += timedelta(days=1)
 
-    print(f"\nCache directory: {CACHE_DIR}")
-
 
 if __name__ == "__main__":
     main()
