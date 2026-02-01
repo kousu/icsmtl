@@ -160,7 +160,7 @@ def fetch_day(session, d, output_dir):
                 os.remove(event_ics_link)
             os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
 
-        ics_content = redate_ics(ics_content, d) # instead of trusting OCR, fixup the event date manually from the loop variable
+        ics_content = redate_ics(ics_content, d, tzid="America/Montreal") # instead of trusting OCR, fixup the event date manually from the loop variable
         # note: we DO NOT fixup the date in the cached file, only the output, in order to keep the cache as a clean copy of the API
 
         # Insert URL line into ICS

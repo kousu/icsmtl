@@ -116,17 +116,21 @@ _DT_RE = re.compile(r"^(DT(?:START|END))(?:;[^:]*)?:(\d{8}(?:T\d{6})?)", re.MULT
 
 # TODO: maybe can take some code from radicale to handle this ics date parsing stuff
 
-def redate_ics(ics_content, new_start_date):
+def redate_ics(ics_content, new_start_date, tzid=None):
     """Shift DTSTART/DTEND in ICS content so the event starts on new_start_date.
 
     If the input has no DTSTART, DTSTART is set to new_start_date.
     If the input has no DTEND, neither does the output.
     If it has DTSTART and it's a timestamp, its time component is copied onto new_start_date.
     If it has both, the original event duration is preserved.
+    If the end is before the start (overnight event), DTEND is bumped to the next day.
 
     Args:
         ics_content: ICS string.
         new_start_date: A datetime.date for the correct start date.
+        tzid: Optional timezone ID (e.g. "America/Montreal"). When set,
+            DTSTART and DTEND datetime lines get a ;TZID= parameter.
+            Date-only lines are not affected.
 
     Returns:
         The rewritten ICS string.
@@ -246,6 +250,78 @@ def redate_ics(ics_content, new_start_date):
     END:VEVENT
     END:VCALENDAR
 
+
+    When the end time is before the start (overnight event), DTEND is bumped to the next day:
+
+    >>> dt = date(2026, 3, 14)
+    >>> ics_content = \"""
+    ... BEGIN:VCALENDAR
+    ... VERSION:2.0
+    ... BEGIN:VEVENT
+    ... DTSTART:20260314T220000
+    ... DTEND:20260314T030000
+    ... SUMMARY:Late Night Party
+    ... END:VEVENT
+    ... END:VCALENDAR
+    ... \""".strip()
+    >>> print(redate_ics(ics_content, dt))
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    BEGIN:VEVENT
+    DTSTART:20260314T220000
+    DTEND:20260315T030000
+    SUMMARY:Late Night Party
+    END:VEVENT
+    END:VCALENDAR
+
+
+    When tzid is provided, datetime lines get a TZID parameter:
+
+    >>> dt = date(2026, 2, 7)
+    >>> ics_content = \"""
+    ... BEGIN:VCALENDAR
+    ... VERSION:2.0
+    ... BEGIN:VEVENT
+    ... DTSTART:20260207T220000
+    ... DTEND:20260208T030000
+    ... SUMMARY:Concert
+    ... END:VEVENT
+    ... END:VCALENDAR
+    ... \""".strip()
+    >>> print(redate_ics(ics_content, dt, tzid="America/Montreal"))
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    BEGIN:VEVENT
+    DTSTART;TZID=America/Montreal:20260207T220000
+    DTEND;TZID=America/Montreal:20260208T030000
+    SUMMARY:Concert
+    END:VEVENT
+    END:VCALENDAR
+
+
+    tzid is not applied to date-only values:
+
+    >>> dt = date(2027, 8, 23)
+    >>> ics_content = \"""
+    ... BEGIN:VCALENDAR
+    ... VERSION:2.0
+    ... BEGIN:VEVENT
+    ... DTSTART:20260213
+    ... DTEND:20260215
+    ... SUMMARY:Festival
+    ... END:VEVENT
+    ... END:VCALENDAR
+    ... \""".strip()
+    >>> print(redate_ics(ics_content, dt, tzid="America/Montreal"))
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    BEGIN:VEVENT
+    DTSTART:20270823
+    DTEND:20270825
+    SUMMARY:Festival
+    END:VEVENT
+    END:VCALENDAR
+
     """
     # Extract old DTSTART and DTEND values and their properties (e.g. TZID)
     old_start = old_end = None
@@ -272,6 +348,10 @@ def redate_ics(ics_content, new_start_date):
     # but if the event didn't havea duration then leave it undefined
     if old_start is not None and old_end is not None:
         new_end = new_start + (old_end - old_start)
+        # If end is before start (e.g. overnight event: 10pm-3am on same date),
+        # bump end to the next day
+        if isinstance(new_end, datetime) and new_end < new_start:
+            new_end += timedelta(days=1)
 
     # shove in a start point
     # XXX janky
@@ -280,10 +360,16 @@ def redate_ics(ics_content, new_start_date):
 
     def _replace(m):
         if new_start is not None and m.group(1).startswith("DTSTART"):
-            prefix, _ = m.group(0).split(":",1)
+            if tzid and isinstance(new_start, datetime):
+                prefix = f"DTSTART;TZID={tzid}"
+            else:
+                prefix, _ = m.group(0).split(":",1)
             return prefix + ":" + _format_ics_datetime(new_start)
         if new_end is not None and m.group(1).startswith("DTEND"):
-            prefix, _ = m.group(0).split(":",1)
+            if tzid and isinstance(new_end, datetime):
+                prefix = f"DTEND;TZID={tzid}"
+            else:
+                prefix, _ = m.group(0).split(":",1)
             return prefix + ":" + _format_ics_datetime(new_end)
         return m.group(0)
 
