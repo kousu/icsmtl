@@ -1,8 +1,8 @@
 ## Bugs
 
-- [ ] mtlrave: if link in caption, include in ics; if not, use the telegram post link
+- [x] mtlrave: if link in caption, include in ics; if not, use the telegram post link
 - [x] mtlrave: trust the date from the TAG over the date from the OCR
-- [ ] lowercase the filenames
+- [ ] lowercase the titles/descriptions from ocr_flyer() (maybe only if they're entirely uppercase?)
 
 ## Sources
 
@@ -10,4 +10,4 @@
 - [ ] https://ra.co/events/ca/montreal
 - [ ] https://montreal.askapunk.net/
 - [ ] https://montreal.ca/evenements
-- [ ] https://www.meetup.com/yellowdoor/events/calendar
+- [x] https://www.meetup.com/yellowdoor/events/calendar
