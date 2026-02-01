@@ -84,7 +84,14 @@ def extract_event_from_flyer(image):
         headers={"User-Agent": USER_AGENT},
         timeout=60,
     )
-    resp.raise_for_status()
+    try:
+        resp.raise_for_status()
+    except Exception as exc:
+        try: # to get the 'error' message given by the server
+            raise Exception(resp.json()['error']) from exc
+        except:
+            # but if there's no message or something else goes wrong, fall back
+            raise exc
 
     result = resp.json()
     event = result["events"][0]
