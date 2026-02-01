@@ -53,19 +53,17 @@ def main():
         dtstart = start_date.get_text(strip=True)
         dtend = end_date.get_text(strip=True)
 
-        # Build description: HTML-stripped content + link + ticket price
+        # Build description: HTML-stripped content + ticket price
         desc_parts = []
         if content:
             plain = BeautifulSoup(content.get_text(), "html.parser").get_text()
             desc_parts.append(plain.strip())
-        if link_text:
-            desc_parts.append(link_text)
         if ticket_price:
             desc_parts.append(ticket_price.get_text(strip=True))
 
         description = "\n\n".join(desc_parts)
 
-        ics_text = make_ics(title_text, description, link_text, dtstart, dtend, prodid=PRODID, tzid="America/Montreal")
+        ics_text = make_ics(title_text, description, dtstart, dtend, prodid=PRODID, tzid="America/Montreal", url=link_text or None)
         filename = make_filename(dtstart, title_text)
         filepath = os.path.join(args.output_dir, filename)
 

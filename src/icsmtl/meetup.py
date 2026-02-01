@@ -92,8 +92,6 @@ def main():
         title = event["title"]
         event_url = event["eventUrl"]
         description = event.get("description") or ""
-        if event_url:
-            description = f"{description}\n\n{event_url}" if description else event_url
 
         # dateTime is ISO 8601 with offset, e.g. "2026-02-02T12:30:00-05:00"
         # Strip offset (first 19 chars) and convert T to space for format_datetime
@@ -105,8 +103,8 @@ def main():
         location = build_location(event.get("venue"))
 
         ics_text = make_ics(
-            title, description, event_url or "", dtstart, dtend,
-            prodid=PRODID, tzid=None, location=location,
+            title, description, dtstart, dtend,
+            prodid=PRODID, location=location, url=event_url or None,
         )
         filename = make_filename(dtstart, title)
         filepath = os.path.join(output_dir, filename)

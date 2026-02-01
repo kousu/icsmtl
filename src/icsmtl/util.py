@@ -46,12 +46,16 @@ def make_filename(dtstart, title):
     return f"{date_prefix}-{name}.ics"
 
 
-def make_ics(summary, description, url, dtstart, dtend, prodid, tzid=None, location=None):
+def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=None, url=None):
     """Build a single-event VCALENDAR string."""
     if tzid:
         dt_prefix = f";TZID={tzid}"
     else:
         dt_prefix = ""
+    if url:
+        full_description = f"{description}\n\n{url}" if description else url
+    else:
+        full_description = description
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
@@ -60,9 +64,10 @@ def make_ics(summary, description, url, dtstart, dtend, prodid, tzid=None, locat
         fold_line(f"DTSTART{dt_prefix}:{format_datetime(dtstart)}"),
         fold_line(f"DTEND{dt_prefix}:{format_datetime(dtend)}"),
         fold_line(f"SUMMARY:{escape_ics_text(summary)}"),
-        fold_line(f"DESCRIPTION:{escape_ics_text(description)}"),
-        fold_line(f"URL:{url}"),
+        fold_line(f"DESCRIPTION:{escape_ics_text(full_description)}"),
     ]
+    if url:
+        lines.append(fold_line(f"URL:{url}"))
     if location:
         lines.append(fold_line(f"LOCATION:{escape_ics_text(location)}"))
     lines += [
