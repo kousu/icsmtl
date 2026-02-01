@@ -9,6 +9,7 @@ description = "A collection of scrapers that convert common web sources into .ic
 requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4",
+    "gql[requests]",
     "lxml",
     "pyxdg",
     "requests",
@@ -17,4 +18,5 @@ dependencies = [
 [project.scripts]
 catics = "icsmtl.catics:main"
 cultmtl = "icsmtl.cultmtl:main"
+meetup = "icsmtl.meetup:main"
 mtlrave-telegram = "icsmtl.mtlrave_telegram:main"
