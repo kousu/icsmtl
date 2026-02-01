@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
 from icsmtl.ocr import ocr_flyer
-from icsmtl.util import parse_ics
+from icsmtl.util import parse_ics, redate_ics
 
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
@@ -45,6 +45,8 @@ def fetch_day(session, d, output_dir):
     tag = date_tag(d)
     url = f"{SEARCH_URL}?q=%23{tag}"
     print(f"[{d}] Fetching {url}")
+
+    date_str = d.strftime('%Y-%m-%d')
 
     resp = session.get(url, timeout=30)
     resp.raise_for_status()
@@ -128,12 +130,12 @@ def fetch_day(session, d, output_dir):
         if os.path.exists(ocr_ics_path):
             with open(ocr_ics_path, "r", encoding="utf-8") as f:
                 ics_content = f.read()
-            title, date_str = parse_ics(ics_content)
+            title, _ = parse_ics(ics_content)
             if not os.path.exists(event_ics_link):
                 os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
         else:
             try:
-                title, date_str, ics_content = ocr_flyer(flyer_path)
+                title, _, ics_content = ocr_flyer(flyer_path)
             except Exception:
                 with open(ocr_exc_path, "w", encoding="utf-8") as f:
                     f.write(traceback.format_exc())
@@ -145,6 +147,9 @@ def fetch_day(session, d, output_dir):
             if os.path.lexists(event_ics_link): # ln -s --force
                 os.remove(event_ics_link)
             os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
+
+        ics_content = redate_ics(ics_content, d) # instead of trusting OCR, fixup the event date manually from the loop variable
+        # note: we DO NOT fixup the date in the cached file, only the output, in order to keep the cache as a clean copy of the API
 
         filename = f"{date_str}-{sanitize_title(title)}.ics"
         output_path = os.path.join(output_dir, filename)

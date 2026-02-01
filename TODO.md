@@ -1,7 +1,7 @@
 ## Bugs
 
 - [ ] mtlrave: if link in caption, include in ics; if not, use the telegram post link
-- [ ] mtlrave: trust the date from the TAG over the date from the OCR
+- [x] mtlrave: trust the date from the TAG over the date from the OCR
 - [ ] lowercase the filenames
 
 ## Sources
