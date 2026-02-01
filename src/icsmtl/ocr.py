@@ -66,7 +66,7 @@ def _prepare_image(image):
     raise TypeError(f"Unsupported image type: {type(image)}")
 
 
-def extract_event_from_flyer(image):
+def ocr_flyer(image):
     """Extract event info from a flyer image.
 
     Args:

@@ -11,7 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
-from icsmtl.flyer import extract_event_from_flyer
+from icsmtl.ocr import ocr_flyer
 from icsmtl.util import parse_ics
 
 SEARCH_URL = "https://t.me/s/mtlrave"
@@ -133,7 +133,7 @@ def fetch_day(session, d, output_dir):
                 os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
         else:
             try:
-                title, date_str, ics_content = extract_event_from_flyer(flyer_path)
+                title, date_str, ics_content = ocr_flyer(flyer_path)
             except Exception:
                 with open(ocr_exc_path, "w", encoding="utf-8") as f:
                     f.write(traceback.format_exc())
