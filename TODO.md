@@ -5,6 +5,7 @@
 - [ ] lowercase the titles/descriptions from ocr_flyer() (maybe only if they're entirely uppercase?)
 - [ ] cultmtl: remove "The post ... first appeared on CultMTL"
 - [ ] event de-duplicator
+- [ ] consider embedding flyers into events via base64 URL encoding
 
 ## Sources
 
