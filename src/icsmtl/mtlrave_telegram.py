@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
 from icsmtl.ocr import ocr_flyer
-from icsmtl.util import fold_line, parse_ics, redate_ics
+from icsmtl.util import escape_ics_text, fold_line, parse_ics, redate_ics
 
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
@@ -163,13 +163,24 @@ def fetch_day(session, d, output_dir):
         ics_content = redate_ics(ics_content, d, tzid="America/Montreal") # instead of trusting OCR, fixup the event date manually from the loop variable
         # note: we DO NOT fixup the date in the cached file, only the output, in order to keep the cache as a clean copy of the API
 
-        # Insert URL line into ICS
+        # Determine event URL
         url_path = os.path.join(post_dir, "url.txt")
         if os.path.exists(url_path):
             with open(url_path, "r", encoding="utf-8") as f:
                 event_url = f.read().strip()
         else:
             event_url = f"https://t.me/s/mtlrave/{post_id}"
+
+        # Append URL as a separate paragraph in DESCRIPTION
+        desc_match = re.search(r'(DESCRIPTION:.*(?:\r?\n[ \t].*)*)', ics_content)
+        if desc_match:
+            old_desc_line = desc_match.group(1)
+            # Unfold continuation lines to get a single logical line
+            unfolded = re.sub(r'\r?\n[ \t]', '', old_desc_line)
+            unfolded += f"\\n\\n{escape_ics_text(event_url)}"
+            ics_content = ics_content.replace(old_desc_line, fold_line(unfolded))
+
+        # Insert URL line into ICS
         url_line = fold_line(f"URL:{event_url}")
         if "\r\nEND:VEVENT" in ics_content:
             ics_content = ics_content.replace("\r\nEND:VEVENT", f"\r\n{url_line}\r\nEND:VEVENT", 1)
