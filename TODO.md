@@ -14,5 +14,7 @@
 - [ ] https://www.effervescence-citoyenne.xyz/calendrier/
 - [ ] https://ra.co/events/ca/montreal
 - [ ] https://montreal.askapunk.net/
+  - available direct at https://montreal.askapunk.net/feed/ics
 - [ ] https://montreal.ca/evenements
 - [x] https://www.meetup.com/yellowdoor/events/calendar
+  - available direct at https://yellowdoor.org/feed/eo-events/
