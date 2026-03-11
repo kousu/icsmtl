@@ -6,6 +6,7 @@ A collection of scrapers that convert common web sources into .ics files that ca
 
 ```
 git clone https://github.com/kousu/icsmtl
+pip install -r requirements-cpu.txt   # IF you do not have a GPU, use this to avoid downloading the heavy GPU dependencies
 pip install --user --break-system-packages .  # python is overly precious; ~/.local is safe enough to install to
 ```
 
@@ -16,6 +17,7 @@ Instead:
 ```
 python -m venv .venv
 . .venv/bin/activate
+pip install -r requirements-cpu.txt   # IF you do not have a GPU, use this to avoid downloading the heavy GPU dependencies
 pip install -e .
 ```
 

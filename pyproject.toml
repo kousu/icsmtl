@@ -13,6 +13,9 @@ dependencies = [
     "lxml",
     "pyxdg",
     "requests",
+    "transformers",
+    "flash-linear-attention", # or just fla-core? https://github.com/fla-org/flash-linear-attention?tab=readme-ov-file#installation
+    "pillow[webp,jpeg2000]",
 ]
 
 [project.scripts]
