@@ -4,15 +4,17 @@ import hashlib
 import os
 import re
 import traceback
+import json
 import unicodedata
-from datetime import date, timedelta
+from urllib.parse import urljoin
+from datetime import date, datetime, timedelta
 
 import requests
 from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
 from icsmtl.ocr import ocr_flyer
-from icsmtl.util import escape_ics_text, fold_line, parse_ics, redate_ics
+from icsmtl.util import escape_ics_text, fold_line, make_ics, parse_ics, redate_ics
 
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
@@ -20,6 +22,7 @@ FLYERS_DIR = os.path.join(CACHE_DIR, "flyers")
 OCR_DIR = os.path.join(CACHE_DIR, "ocr")
 DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events")
 USER_AGENT = "icsmtl/0.1"
+PRODID = "-//icsmtl//mtlrave-telegram//EN"
 
 
 def date_tag(d):
@@ -28,11 +31,13 @@ def date_tag(d):
 
 
 def extract_caption_url(caption_el):
-    """Extract the first URL from an <a> tag in a caption element."""
+    """Extract the first URL in the caption that's not a link back to Telegram."""
     if not caption_el:
         return None
-    a_tag = caption_el.find("a", href=True)
-    return a_tag["href"] if a_tag else None
+    a_tag = caption_el.find("a",
+                            href=lambda h: h.startswith("http") # only accept external links; links back to Telegram are noise
+                        )
+    return urljoin(SEARCH_URL, a_tag["href"]) if a_tag else None
 
 
 def extract_image_url(style):
@@ -47,6 +52,48 @@ def sanitize_title(title):
     name = name.encode("ascii", "ignore").decode("ascii")
     return name.replace(" ", "_").replace("/", "_")
 
+
+def build_ics(event, id=None, url=None):
+
+    ## mangle the date info into dtstart/dtend
+    start_date, end_date, start_time, end_time = event.get('date'), event.get('end_date'), event.get('start_time'), event.get('end_time')
+    if not date:
+        raise ValueError("date is required")
+
+    # Ignore end_time if there's no start_time to anchor it
+    if end_time and not start_time:
+        end_time = None
+
+    if not start_time:
+        # --- All-day cases ---
+        dtstart = date.strptime(start_date, "%Y-%m-%d")
+        if end_date:
+             # ???
+            dtend = date.strptime(end_date, "%Y-%m-%d")
+        else:
+            dtend = dtstart + timedelta(days=1)
+    else:
+        # --- Timed cases ---
+        dtstart = datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M")
+
+        if end_time:
+            end_base = datetime.strptime(end_time, "%H:%M")
+
+            dtend = dtstart.replace(hour=end_base.hour, minute=end_base.minute, second=0)
+            if dtend <= dtstart:
+                # End might be past midnight (e.g. party starts 22:00, ends 03:00)
+                dtend += timedelta(days=1)
+            # If an explicit end_date was given, use that date instead
+            if end_date:
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+                dtend = dtend.replace(year=end_date_obj.year,
+                                        month=end_date_obj.month,
+                                        day=end_date_obj.day)
+        else:
+            # if we really don't know, assume it's 1 hour long
+            dtend = dtstart + timedelta(hours=1)
+
+    return make_ics(event['title'], event['description'], dtstart, dtend, PRODID, location=event.get('location'), url=url, id=id)
 
 def fetch_day(session, d, output_dir):
     """Fetch and cache Telegram posts for a given date."""
@@ -104,7 +151,7 @@ def fetch_day(session, d, output_dir):
             if caption_url:
                 with open(os.path.join(post_dir, "url.txt"), "w", encoding="utf-8") as f:
                     f.write(caption_url)
-            print(f"  Post {SEARCH_URL}/{post_id}: downloading flyer{ext}")
+            print(f"  Post {SEARCH_URL}/{post_id} : downloading flyer{ext}")
             img_resp = session.get(img_url, timeout=30)
             img_resp.raise_for_status()
             img_data = img_resp.content
@@ -131,67 +178,58 @@ def fetch_day(session, d, output_dir):
         with open(flyer_path, "rb") as f:
             flyer_hash = hashlib.sha256(f.read()).hexdigest()
 
-        ocr_ics_path = os.path.join(OCR_DIR, f"{flyer_hash}.ics")
+        ocr_json_path = os.path.join(OCR_DIR, f"{flyer_hash}.json")
         ocr_exc_path = os.path.join(OCR_DIR, f"{flyer_hash}.exc")
-        event_ics_link = os.path.join(post_dir, "event.ics")
 
         if os.path.exists(ocr_exc_path):
             print(f"  Post {SEARCH_URL}/{post_id}: previous extraction failed, skipping")
             continue
 
-        if os.path.exists(ocr_ics_path):
-            with open(ocr_ics_path, "r", encoding="utf-8") as f:
-                ics_content = f.read()
-            title, _ = parse_ics(ics_content)
-            if not os.path.exists(event_ics_link):
-                os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
+        if os.path.exists(ocr_json_path):
+            with open(ocr_json_path, "r", encoding="utf-8") as f:
+                event = json.loads(f.read())
+            title = event['title']
         else:
             try:
-                title, _, ics_content = ocr_flyer(flyer_path)
+                event = ocr_flyer(flyer_path)
             except Exception:
                 with open(ocr_exc_path, "w", encoding="utf-8") as f:
                     f.write(traceback.format_exc())
                 print(f"  Post {SEARCH_URL}/{post_id}: extraction failed, see {ocr_exc_path}")
                 continue
-            with open(ocr_ics_path, "w", encoding="utf-8") as f:
-                f.write(ics_content)
+            with open(ocr_json_path, "w", encoding="utf-8") as f:
+                f.write(json.dumps(event))
 
-            if os.path.lexists(event_ics_link): # ln -s --force
-                os.remove(event_ics_link)
-            os.symlink(os.path.relpath(ocr_ics_path, post_dir), event_ics_link)
+        # print(event)
 
-        ics_content = redate_ics(ics_content, d, tzid="America/Montreal") # instead of trusting OCR, fixup the event date manually from the loop variable
-        # note: we DO NOT fixup the date in the cached file, only the output, in order to keep the cache as a clean copy of the API
+        # Tweak the event to read nicer
 
         # Determine event URL
+        event_url = None
         url_path = os.path.join(post_dir, "url.txt")
         if os.path.exists(url_path):
+            # use the url in the caption if there was one
             with open(url_path, "r", encoding="utf-8") as f:
                 event_url = f.read().strip()
-        else:
+        if not event_url:
             event_url = f"https://t.me/s/mtlrave/{post_id}"
 
-        # Append URL as a separate paragraph in DESCRIPTION
-        desc_match = re.search(r'(DESCRIPTION:.*(?:\r?\n[ \t].*)*)', ics_content)
-        if desc_match:
-            old_desc_line = desc_match.group(1)
-            # Unfold continuation lines to get a single logical line
-            unfolded = re.sub(r'\r?\n[ \t]', '', old_desc_line)
-            unfolded += f"\\n\\n{escape_ics_text(event_url)}"
-            ics_content = ics_content.replace(old_desc_line, fold_line(unfolded))
+        # clip the description for sanity
+        if event['description'] is not None:
+            event['description'] = event['description'][:500]
 
-        # Insert URL line into ICS
-        url_line = fold_line(f"URL:{event_url}")
-        if "\r\nEND:VEVENT" in ics_content:
-            ics_content = ics_content.replace("\r\nEND:VEVENT", f"\r\n{url_line}\r\nEND:VEVENT", 1)
-        else:
-            ics_content = ics_content.replace("\nEND:VEVENT", f"\n{url_line}\nEND:VEVENT", 1)
+        # print(event)
 
-        filename = f"{date_str}-{sanitize_title(title)}.ics"
+        # Build ICS
+        ics_content = build_ics(event, url=event_url, id=flyer_hash)
+        ics_content = redate_ics(ics_content, d, tzid="America/Montreal")
+
+        filename = f"{date_str}-{sanitize_title(event['title'])}.ics"
         output_path = os.path.join(output_dir, filename)
+        print(f"  Post {SEARCH_URL}/{post_id} => {filename}")
         with open(output_path, "w", encoding="utf-8") as f:
+            print(ics_content)
             f.write(ics_content)
-        print(f"  Post {SEARCH_URL}/{post_id}: wrote {filename}")
 
 
 def main():

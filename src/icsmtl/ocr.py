@@ -15,8 +15,6 @@ USER_AGENT = "icsmtl/0.1"
 
 def ask_claude_about_image(image_path: str, prompt: str) -> str:
 
-    #return json.dumps({'title': 'Fire Horse 火馬年 Lunar New Year Party', 'date': '2020-02-21', 'end_date': None, 'start_time': '19:00', 'end_time': '03:00', 'location': '@parquette', 'price': None, 'description': '18+ | LUNAR NEW YEAR PARTY\n\nPerformers: MIASALAV, kiju b2b sako, Guan (LIVE), Lather Rinse Repeat\n\nPerformers: Traditional Lion Dance, Tokyo the Superstar, Xandrost, Mellyun, log____off\n\nv: o0yu\nInstallation: Glotto\nFood: Laphing Center\nHostesses: 2d girlfriend, anglar\n\nWORKSHOPS 19-22\nRAVE 22-3\n\nstickyrice'})
-
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
@@ -30,7 +28,7 @@ def ask_claude_about_image(image_path: str, prompt: str) -> str:
     with open(image_path, "rb") as f:
         image_data = base64.standard_b64encode(f.read()).decode("utf-8")
 
-    print(prompt)
+    # print(prompt)  # DEBUG
 
     # Current models (as of early 2026) -- see https://platform.claude.com/docs/en/about-claude/models/overview
     # Claude 4.6 family (latest):
@@ -91,95 +89,6 @@ def ask_claude_about_image(image_path: str, prompt: str) -> str:
 
     return resp.json()["content"][0]["text"]
 
-def ics_escape(s):
-    "escape the characters that are special to the ics format"
-    return s.replace('\\', r'\\').replace(',', r'\,').replace(';', r'\;').replace('\n', r'\n')
-
-def build_ics(event, id=None):
-
-    if not id:
-        id = str(uuid.uuid6())
-
-    # timestamp generation
-    now = datetime.today()
-    now = now.isoformat()
-    now = now.split('.')[0]
-    now = re.sub('[-:]','', now)
-
-    ## mangle the date info into dtstart/dtend
-    date, end_date, start_time, end_time = event.get('date'), event.get('end_date'), event.get('start_time'), event.get('end_time')
-    if not date:
-        raise ValueError("date is required")
-
-    # Ignore end_time if there's no start_time to anchor it
-    if end_time and not start_time:
-        end_time = None
-
-    date_obj = datetime.strptime(date, "%Y-%m-%d")
-
-    if not start_time:
-        # --- All-day cases ---
-        # use the DATE format:       YYYYMMDD
-        # (we do not impose a timezone = floating local time)
-        dtstart = date_obj.strftime("%Y%m%d")
-        if end_date:
-            # iCal all-day DTEND is exclusive, so add one day to the last day
-            end_obj = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-            dtend = end_obj.strftime("%Y%m%d")
-        else:
-            dtend = None
-    else:
-        # --- Timed cases ---
-        # use the DATE-TIME format:    YYYYMMDDTHHmmSS
-        # (we do not impose a timezone = floating local time)
-        start_dt = datetime.strptime(f"{date} {start_time}", "%Y-%m-%d %H:%M")
-        dtstart = start_dt.strftime("%Y%m%dT%H%M%S")
-
-        if end_time:
-            end_base = datetime.strptime(end_time, "%H:%M")
-            end_dt = start_dt.replace(hour=end_base.hour, minute=end_base.minute, second=0)
-            if end_dt <= start_dt:
-                # End might be past midnight (e.g. party starts 22:00, ends 03:00)
-                end_dt += timedelta(days=1)
-            # If an explicit end_date was given, use that date instead
-            if end_date:
-                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
-                end_dt = end_dt.replace(year=end_date_obj.year,
-                                        month=end_date_obj.month,
-                                        day=end_date_obj.day)
-        else:
-            end_dt = start_dt + timedelta(hours=1)
-
-        dtend = end_dt.strftime("%Y%m%dT%H%M%S")
-
-    ## build the cal
-    vcal = dedent(f"""
-        BEGIN:VCALENDAR
-        VERSION:2.0
-        PRODID:-//icsmtl Event Extractor//EN
-    """).lstrip()
-
-    vcal += dedent(f"""
-        BEGIN:VEVENT
-        UID:{ics_escape(id)}@evt
-        DTSTAMP:{now}
-        DTSTART:{dtstart}
-        DTEND:{dtend}
-        SUMMARY:{ics_escape(event['title'] or 'Event')}
-    """).lstrip()
-
-    if event.get('location', ""):
-        vcal += f"LOCATION:{ics_escape(event['location'])}\n"
-
-    if event.get('description', ""):
-        vcal += f"DESCRIPTION:{ics_escape(event['description'])}\n"
-
-    vcal += dedent("""
-        END:VEVENT
-        END:VCALENDAR
-    """).lstrip()
-
-    return vcal
 
 def ocr_flyer(image):
     """Extract event info from a flyer image.
@@ -195,14 +104,15 @@ def ocr_flyer(image):
         # add this to the prompt to debug things:
         # - reasoning: an explanation in plain english of your reasoning chain for selecting each value
     event = ask_claude_about_image(image, dedent(f"""
-        Identify the event within this flyer. Determine the title and if available the date, time, location and price.
+        Identify the event within this flyer. Determine the title and if available
+        the date, time, location, price, performers, ticket or information URLs,
+        and special instructions.
 
         Dates and Times:
-        Today is {now.strftime('%Y-%m-%d')} and the event likely is near; if the date appears far from today, re-check your OCR, the font might just be hard to read.
-        If the time format is ambiguous assume the event is given in 12h time. Be aware it is possible for events to run overnight.
-
-        Other text:
-        Assume any other text is a description (e.g. performers, special instructions).
+        Be aware it is possible for events to run overnight.
+        Minimize |date - {now.strftime('%Y-%m-%d')}| and prefer shorter events (<= 24h) to longer ones.
+        If the event appears to be far from now or appears to run for many days, consider possible typos
+        or misreads in the OCR.
 
         Output:
         Return a JSON object with:
@@ -214,7 +124,8 @@ def ocr_flyer(image):
         - end_time: HH:MM (24h) or null
         - location: venue/address or null
         - price: price or null
-        - description: key details using ORIGINAL wording from the image. Include performers, URLs, special instructions.
+        - url: URL or null
+        - description: key details using ORIGINAL wording from the flyer. Include performers and special instructions.
 
         Rules:
         - Every event MUST have a title
@@ -224,8 +135,9 @@ def ocr_flyer(image):
         - Do NOT include a preface nor summary.
     """).lstrip())
 
-    print(event)
-    print()
+    # DEBUG
+    # print(event)
+    # print()
 
     # strip markdown code quotes (Haiku in particular seems to be a fan of these)
     event=event.strip()
@@ -235,14 +147,6 @@ def ocr_flyer(image):
     try:
         event = json.loads(event)
     except Exception as exc:
-        raise Exception("Claude returned malformed json") from exc
+        raise Exception(f"Claude returned malformed json:\n\n{event}") from exc
 
-    print(event)
-    print()
-
-    # clip the description for sanity
-    if event['description'] is not None:
-        event['description'] = event['description'][:500]
-
-    id = os.path.splitext(os.path.basename(image))[0] # use the flyer filename as the event ID in the vCal
-    return event["title"], event["date"], build_ics(event, id=id)
+    return event

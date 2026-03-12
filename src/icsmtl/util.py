@@ -1,4 +1,5 @@
 import re
+import uuid
 import unicodedata
 from datetime import date, datetime, timedelta
 
@@ -45,14 +46,29 @@ def make_filename(dtstart, title):
     name = name.replace(" ", "_").replace("/", "_")
     return f"{date_prefix}-{name}.ics"
 
+def datetime2ics(T):
+    if isinstance(T, datetime):
+        # note: datetimes are also dates; so this case has to be first
+        return T.strftime("%Y%m%dT%H%M%S")
+    elif isinstance(T, date):
+        return T.strftime("%Y%m%d")
 
-def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=None, url=None):
+def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=None, url=None, id=None):
     """Build a single-event VCALENDAR string."""
+    now = datetime.today()
+
+    if not id:
+        id = str(uuid.uuid6())
+
+    now = datetime2ics(now)
+    dtstart = datetime2ics(dtstart)
+    dtend = datetime2ics(dtend)
+
     if tzid:
         dt_prefix = f";TZID={tzid}"
     else:
         dt_prefix = ""
-    if url:
+    if url and url not in description:
         full_description = f"{description}\n\n{url}" if description else url
     else:
         full_description = description
@@ -61,6 +77,7 @@ def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=N
         "VERSION:2.0",
         f"PRODID:{prodid}",
         "BEGIN:VEVENT",
+        fold_line(f"DTSTAMP{dt_prefix}:{format_datetime(now)}"),
         fold_line(f"DTSTART{dt_prefix}:{format_datetime(dtstart)}"),
         fold_line(f"DTEND{dt_prefix}:{format_datetime(dtend)}"),
         fold_line(f"SUMMARY:{escape_ics_text(summary)}"),
