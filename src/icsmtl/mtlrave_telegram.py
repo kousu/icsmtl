@@ -6,6 +6,7 @@ import re
 import traceback
 import json
 import unicodedata
+import subprocess
 from urllib.parse import urljoin
 from datetime import date, datetime, timedelta
 
@@ -18,6 +19,7 @@ from icsmtl.util import escape_ics_text, fold_line, make_ics, parse_ics, redate_
 
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
+POSTS_DIR = os.path.join(CACHE_DIR, "posts")
 FLYERS_DIR = os.path.join(CACHE_DIR, "flyers")
 OCR_DIR = os.path.join(CACHE_DIR, "ocr")
 DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events")
@@ -53,7 +55,7 @@ def sanitize_title(title):
     return name.replace(" ", "_").replace("/", "_")
 
 
-def build_ics(event, id=None, url=None):
+def build_ics(event, id=None):
 
     ## mangle the date info into dtstart/dtend
     start_date, end_date, start_time, end_time = event.get('date'), event.get('end_date'), event.get('start_time'), event.get('end_time')
@@ -93,7 +95,7 @@ def build_ics(event, id=None, url=None):
             # if we really don't know, assume it's 1 hour long
             dtend = dtstart + timedelta(hours=1)
 
-    return make_ics(event['title'], event['description'], dtstart, dtend, PRODID, location=event.get('location'), url=url, id=id)
+    return make_ics(event['title'], event.get('description'), dtstart, dtend, PRODID, location=event.get('location'), price=event.get('price'), url=event.get('url'), id=id)
 
 def fetch_day(session, d, output_dir):
     """Fetch and cache Telegram posts for a given date."""
@@ -138,11 +140,12 @@ def fetch_day(session, d, output_dir):
         # Determine file extension from URL
         ext = os.path.splitext(img_url.split("?")[0])[-1] or ".jpg"
 
-        post_dir = os.path.join(CACHE_DIR, post_id)
+        post_dir = os.path.join(POSTS_DIR, post_id)
         flyer_path = os.path.join(post_dir, f"flyer{ext}")
 
         # Phase 1: Download flyer if not cached
         if not os.path.exists(flyer_path):
+            print(f"gotta scrape for {flyer_path}")
             caption_el = post.select_one("div.tgme_widget_message_text")
             caption_url = extract_caption_url(caption_el)
             caption = caption_el.get_text() if caption_el else ""
@@ -185,12 +188,9 @@ def fetch_day(session, d, output_dir):
             print(f"  Post {SEARCH_URL}/{post_id}: previous extraction failed, skipping")
             continue
 
-        if os.path.exists(ocr_json_path):
-            with open(ocr_json_path, "r", encoding="utf-8") as f:
-                event = json.loads(f.read())
-            title = event['title']
-        else:
+        if not os.path.exists(ocr_json_path):
             try:
+                print(f"Running OCR on {flyer_path}")
                 event = ocr_flyer(flyer_path)
             except Exception:
                 with open(ocr_exc_path, "w", encoding="utf-8") as f:
@@ -200,19 +200,26 @@ def fetch_day(session, d, output_dir):
             with open(ocr_json_path, "w", encoding="utf-8") as f:
                 f.write(json.dumps(event))
 
+        with open(ocr_json_path, "r", encoding="utf-8") as f:
+            event = json.loads(f.read())
+
         # print(event)
 
-        # Tweak the event to read nicer
+
+        # Tweak the event to read nicer:
 
         # Determine event URL
+        # use the url in the caption if there was one
+        # but fill in the link to the Telegram post if not
         event_url = None
         url_path = os.path.join(post_dir, "url.txt")
+
         if os.path.exists(url_path):
-            # use the url in the caption if there was one
             with open(url_path, "r", encoding="utf-8") as f:
-                event_url = f.read().strip()
-        if not event_url:
-            event_url = f"https://t.me/s/mtlrave/{post_id}"
+                event['url'] = f.read().strip()
+
+        if not event.get('url'):
+            event['url'] = f"https://t.me/s/mtlrave/{post_id}"
 
         # clip the description for sanity
         if event['description'] is not None:
@@ -221,14 +228,14 @@ def fetch_day(session, d, output_dir):
         # print(event)
 
         # Build ICS
-        ics_content = build_ics(event, url=event_url, id=flyer_hash)
+        ics_content = build_ics(event, id=flyer_hash)
         ics_content = redate_ics(ics_content, d, tzid="America/Montreal")
 
         filename = f"{date_str}-{sanitize_title(event['title'])}.ics"
         output_path = os.path.join(output_dir, filename)
         print(f"  Post {SEARCH_URL}/{post_id} => {filename}")
         with open(output_path, "w", encoding="utf-8") as f:
-            print(ics_content)
+            # print(ics_content)
             f.write(ics_content)
 
 
@@ -269,6 +276,10 @@ def main():
     while d <= args.end:
         fetch_day(session, d, args.output_dir)
         d += timedelta(days=1)
+
+    with open(args.output_dir + ".ics", "w") as merged_calendar:
+        subprocess.run(['catics'] + glob.glob(os.path.join(args.output_dir, "*.ics")), stdout=merged_calendar, check=True)
+        print("Output to", os.path.relpath(merged_calendar.name, '.'))
 
 
 if __name__ == "__main__":

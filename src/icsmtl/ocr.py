@@ -125,11 +125,12 @@ def ocr_flyer(image):
         - location: venue/address or null
         - price: price or null
         - url: URL or null
-        - description: key details using ORIGINAL wording from the flyer. Include performers and special instructions.
+        - description: Include other details like performers and special instructions using the ORIGINAL wording from the flyer. Keep the flyer's voice.
 
         Rules:
         - Every event MUST have a title
         - Response must be ONLY valid, parseable JSON.
+        - Do NOT put the date, time, price or location in the description.
         - Do NOT wrap the output in markdown code quotes.
         - Do NOT wrap the output in '```json'.
         - Do NOT include a preface nor summary.

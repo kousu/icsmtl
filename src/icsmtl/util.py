@@ -1,5 +1,6 @@
 import re
 import uuid
+import base64
 import unicodedata
 from datetime import date, datetime, timedelta
 
@@ -53,7 +54,7 @@ def datetime2ics(T):
     elif isinstance(T, date):
         return T.strftime("%Y%m%d")
 
-def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=None, url=None, id=None):
+def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=None, image=None, price=None, url=None, id=None):
     """Build a single-event VCALENDAR string."""
     now = datetime.today()
 
@@ -68,10 +69,14 @@ def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=N
         dt_prefix = f";TZID={tzid}"
     else:
         dt_prefix = ""
+
+    description = description or ''
+    if price:
+        description += f"\n\nPrice: {price}"
     if url and url not in description:
-        full_description = f"{description}\n\n{url}" if description else url
-    else:
-        full_description = description
+        description += f"\n\n{url}"
+    description = description.strip()
+
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
@@ -81,7 +86,7 @@ def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=N
         fold_line(f"DTSTART{dt_prefix}:{format_datetime(dtstart)}"),
         fold_line(f"DTEND{dt_prefix}:{format_datetime(dtend)}"),
         fold_line(f"SUMMARY:{escape_ics_text(summary)}"),
-        fold_line(f"DESCRIPTION:{escape_ics_text(full_description)}"),
+        fold_line(f"DESCRIPTION:{escape_ics_text(description)}"),
     ]
     if url:
         lines.append(fold_line(f"URL:{url}"))
