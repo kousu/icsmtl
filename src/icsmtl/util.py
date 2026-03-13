@@ -88,6 +88,13 @@ def make_ics(summary, description, dtstart, dtend, prodid, tzid=None, location=N
         fold_line(f"SUMMARY:{escape_ics_text(summary)}"),
         fold_line(f"DESCRIPTION:{escape_ics_text(description)}"),
     ]
+    if image:
+        if image.startswith("https://"):
+            lines.append(fold_line(f"IMAGE;VALUE=URI:{image}"))
+        elif os.path.exists(image):
+            lines.append(fold_line(f"IMAGE;VALUE=BINARY;ENCODING=BASE64;FMTTYPE={mimetypes.guess_type(image)}:{base64.b64encode(open(image,'rb').read())}"))
+        else:
+            raise TypeError('Unable to interpret image={image}')
     if url:
         lines.append(fold_line(f"URL:{url}"))
     if location:
