@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 catics = "icsmtl.catics:main"
+ics-ocr-flyer = "icsmtl.flyer:main"
 cultmtl = "icsmtl.cultmtl:main"
 meetup = "icsmtl.meetup:main"
 mtlrave-telegram = "icsmtl.mtlrave_telegram:main"

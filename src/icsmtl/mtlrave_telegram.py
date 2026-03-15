@@ -55,7 +55,11 @@ def sanitize_title(title):
     return name.replace(" ", "_").replace("/", "_")
 
 
-def build_ics(event, id=None):
+def build_ics(event, id=None, PRODID=PRODID):
+    """
+    Convert OCR event JSON to an ics string
+    *mostly* what this does is handle the heuristics about turning ((start_date,end_date), (start_time,end_time)) into sensible timespans that will appear reasonable on a calendar app
+    """
 
     ## mangle the date info into dtstart/dtend
     start_date, end_date, start_time, end_time = event.get('date'), event.get('end_date'), event.get('start_time'), event.get('end_time')
@@ -211,7 +215,6 @@ def fetch_day(session, d, output_dir):
         # Determine event URL
         # use the url in the caption if there was one
         # but fill in the link to the Telegram post if not
-        event_url = None
         url_path = os.path.join(post_dir, "url.txt")
 
         if os.path.exists(url_path):
