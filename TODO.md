@@ -71,3 +71,8 @@
     - https://www.turbohaus.ca/api/open/GetItemsByMonth?month=03-2026&collectionId=5514d06ce4b0cc915219770e&crumb=Bew%2B6P1qh6ATMmU4MjQ3ZDEwNzBkMWU1NDg5ZmZiNWE0MTI5ZGMw
     - > provides all events in JSON, with fullUrl providing a link (though it's not a full URL, it's relative to the domain); andddd if you tack ?format=ical to the end of that URL you get a .ics (!)i
     - however the .ics it gives doesn't contain a description, even though the non-?format=ical page _does_, so I guess we need to combine them?
+- [ ] Instagram
+  - Generic instagram scraper
+    - https://github.com/mikf/gallery-dl ? ( needs an insta account )
+    - https://github.com/misiektoja/instagram_monitor ( needs an insta account )
+    - load public pages in selenium?
