@@ -40,6 +40,7 @@
     - https://huggingface.co/spaces/bp7274/Flyer_Extractor/blob/main/app.py
     - https://huggingface.co/spaces/MrAltYT/FlyerDetection/blob/main/app.py
     - https://huggingface.co/spaces/tlogandesigns/image-text-compliance/blob/main/app.py
+    - https://ente.io/ml/ has some tips; like, maybe try ONNX + ORT instead of ollama.
 
 - integrate https://github.com/hawry/events-are-square
   - this is a parser for SquareSpace sites that generates .ics files; e.g. it can convert Turbohaus.ca/cal to ics
