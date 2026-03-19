@@ -3,10 +3,9 @@ import glob
 import hashlib
 import os
 import re
-import subprocess
 import logging
 from urllib.parse import urljoin
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
@@ -15,9 +14,11 @@ from xdg.BaseDirectory import xdg_cache_home
 
 from kousu.flyerocr.ocr import ocr_flyer
 from kousu.flyerocr.ics import save as save_ics
+from kousu.flyerocr.catics import cat as cat_ics
+
 
 CHANNEL_URL = "https://t.me/s/mtlrave"
-CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
+CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "icsmtl", "mtlrave_telegram")
 POSTS_DIR = os.path.join(CACHE_DIR, "posts")
 FLYERS_DIR = os.path.join(CACHE_DIR, "flyers")
 DEFAULT_OUTPUT_DIR = "./events/"
@@ -67,12 +68,6 @@ def fetch_telegram_posts(session, url): # -> seq[Tuple[post_url, image_url, capt
 
     soup = BeautifulSoup(resp.text, "html.parser")
     posts = soup.select("div.tgme_widget_message")
-
-    if not posts:
-        print("No posts found")
-        return
-
-    print(f"{len(posts)} post(s) found")
 
     for post in posts:
         post_attr = post.get("data-post", "")
@@ -138,11 +133,8 @@ def fetch_day(session, d, output_dir):
             if os.path.lexists(flyer_path):  # ln -s --force
                 os.remove(flyer_path)
             log.debug(f"{flyer_path=}, {canonical_flyer=}, {post_dir=}")
+            os.makedirs(post_dir, exist_ok=True)
             os.symlink(os.path.relpath(canonical_flyer, post_dir), flyer_path)
-            with open(
-                os.path.join(post_dir, "caption.txt"), "w", encoding="utf-8"
-            ) as f:
-                f.write(caption)
 
         # Phase 2: Extract .ics from flyer
         if img_data is None:
@@ -162,17 +154,21 @@ def fetch_day(session, d, output_dir):
         # Tweak the event to read better
         #
 
-        # We are sure anout the date, so impose it
-
-        if event.get("date") and event.get("end_date"):
-            delta = event["end_date"] - event["date"]
-            event["end_date"] = d + delta
-        event["date"] = d
+        # We are sure about the date, so impose it
+        # # Tricky:
+        # # We already used a heuristic in ocr_flyer to fixup the dates
+        # # should we have not done that?
+        delta = (event["dtend"] - event["dtstart"])
+        if isinstance(event['dtstart'], date):
+            event['dtstart'] = d
+        elif isinstance(event['dtstart'], datetime):
+            event['dtstart'] = datetime.combine(d, event['dtstart'].time())
+        event['dtend'] = event['dtstart'] + delta
 
         # We also know the timezone
         tz = ZoneInfo("America/Montreal")
-        for field in ["start_time", "end_time"]:
-            if event.get(field):
+        for field in ["dtstart", "dtend"]:
+            if event.get(field) and isinstance(event[field], datetime):
                 event[field] = event[field].replace(tzinfo=tz)
 
         # clip the description for sanity
@@ -235,19 +231,15 @@ def main():
     session = requests.Session()
     session.headers["User-Agent"] = USER_AGENT
 
-
     d = args.start
     while d <= args.end:
         fetch_day(session, d, args.output_dir)
         d += timedelta(days=1)
 
-    with open(args.output_dir + ".ics", "w") as merged_calendar:
-        subprocess.run(
-            ["ics-cat"] + glob.glob(os.path.join(args.output_dir, "*.ics")),
-            stdout=merged_calendar,
-            check=True,
-        )
-        print("Output to", os.path.relpath(merged_calendar.name, "."))
+    merged_calendar = cat_ics(glob.glob(os.path.join(args.output_dir, "*.ics")))
+    with open(args.output_dir + ".ics", "wb") as fd:
+        fd.write(merged_calendar.to_ical())
+        print("Output to", os.path.relpath(fd.name, "."))
 
 
 if __name__ == "__main__":

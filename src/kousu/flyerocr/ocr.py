@@ -13,7 +13,7 @@ import filetype
 from xdg.BaseDirectory import xdg_cache_home
 import requests # TODO: httpx?
 
-from .util import _load_bytes
+from .util import _load_bytes, interpret_datetime
 
 
 log = logging.getLogger(__name__)
@@ -93,6 +93,7 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
 
     resp.raise_for_status()
     return resp.json()["content"][0]["text"]
+
 
 
 def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
@@ -176,7 +177,7 @@ def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes]):
 
     if os.path.exists(json_path):
         with open(json_path, "r", encoding="utf-8") as fd:
-            log.info("Loading OCR for from '%s'", json_path)
+            log.info(f"Loading OCR {"for " + filename + " " if filename else ""}from '{json_path}'")
             event = fd.read()
     else:
         try:
@@ -226,5 +227,20 @@ def ocr_flyer(image: str | Path | bytes | IO[bytes]):
                     event[field] = type.strptime(value, fmt)
                 except ValueError as exc:
                     log.warn("Unable to parse %s '%s': %s", type.__name__, value, exc)
+
+    # Fixup time
+    dtstart, dtend = interpret_datetime(
+        event.get("date"),
+        event.get("end_date"),
+        event.get("start_time"),
+        event.get("end_time"),
+    )
+
+    for field in ['date','end_date','start_time','end_time']:
+        if field in event:
+            del event[field]
+
+    event['dtstart'] = dtstart
+    event['dtend'] = dtend
 
     return event
