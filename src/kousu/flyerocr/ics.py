@@ -67,7 +67,7 @@ def make(event, length_limit=None):
 
     if image:
         if isinstance(image, str) and image.startswith("https://"):
-            event.add("image", image, paramters={"value": "uri"})
+            event.add("image", image, parameters={"value": "uri"})
         else:
             image = util._load_bytes(image)
             event.add(

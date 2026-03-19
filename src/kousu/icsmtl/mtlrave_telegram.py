@@ -174,13 +174,19 @@ def fetch_day(session, d, output_dir):
         if event["description"] is not None:
             event["description"] = event["description"][:500]
 
-        # event url; use the organizer's link if given, else just link to the Telegram page
-        event["url"] = caption_url if caption_url else f"{CHANNEL_URL}/{post_id}"
-
         # add (plaintext) caption
         if event["description"] is not None and caption.strip():
             if caption.strip():
                 event["description"] += f"\n\n{caption}"
+
+        # event url; use the organizer's link if given, else just link to the Telegram page
+        # https://www.rfc-editor.org/rfc/rfc7986.html#section-5.5
+        event["url"] = caption_url if caption_url else f"{CHANNEL_URL}/{post_id}"
+
+        # embed flyer
+        # there are zero apps that actually render this but it is part of the spec
+        # https://www.rfc-editor.org/rfc/rfc7986.html#section-5.10
+        event["image"] = img_url  # img_data # ; either url or data both are valid
 
         # Save our results
         #
