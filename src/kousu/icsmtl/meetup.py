@@ -130,6 +130,11 @@ def main():
     args = parser.parse_args()
     output_dir = os.path.join(args.output_dir, "meetup", args.urlname)
 
+    if args.verbose > 0:
+        logging.getLogger().setLevel(logging.INFO)
+    if args.verbose > 1:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     scrape(args.urlname, output_dir)
 
     merged_calendar = cat_ics(glob.glob(os.path.join(output_dir, "*.ics")))
