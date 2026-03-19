@@ -1,6 +1,10 @@
 import argparse
 import re
 import sys
+from contextlib import nullcontext
+from itertools import chain
+
+import icalendar
 
 PRODID = "-//icsmtl//catics//EN"
 
@@ -31,39 +35,18 @@ def main():
     )
     args = parser.parse_args()
 
-    paths = args.inputs
-
-    # if not paths:
-    #     print("No input files.", file=sys.stderr)
-    #     sys.exit(1)
-
-    vevents = []
-    for path in paths:
-        with open(path, "r", encoding="utf-8") as f:
-            vevents.extend(extract_vevents(f.read()))
-
-    # if not vevents:
-    #     print("No VEVENT blocks found in input files.", file=sys.stderr)
-    #     sys.exit(1)
-
-    lines = [
-        "BEGIN:VCALENDAR\r\n",
-        "VERSION:2.0\r\n",
-        f"PRODID:{PRODID}\r\n",
-    ]
-    for vevent in vevents:
-        # Normalize to CRLF
-        lines.append(vevent.replace("\r\n", "\n").replace("\n", "\r\n"))
-    lines.append("END:VCALENDAR\r\n")
-
-    output = "".join(lines)
+    cal = icalendar.Calendar()
+    cal["prodid"] = PRODID
+    for event in chain(*(icalendar.Calendar.from_ical(p).events for p in args.inputs)):
+        cal.add_component(event)
 
     if args.output == "-":
-        sys.stdout.write(output)
+        c = nullcontext(sys.stdout.buffer)
     else:
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(output)
-        print(f"Wrote {len(vevents)} event(s) to {args.output}", file=sys.stderr)
+        c = open(args.output, "wb")
+
+    with c as fd:
+        fd.write(cal.to_ical())
 
 
 if __name__ == "__main__":

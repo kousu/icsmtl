@@ -11,7 +11,7 @@ def sanitize_title(title):
     return name.replace(" ", "_").replace("/", "_")
 
 
-def make_filename(event):
+def filename(event):
     """Build filename as {YYYY-MM-DD}-{sanitized_title}.ics."""
     title = sanitize_title(event["title"])
     if event.get("date"):

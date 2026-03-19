@@ -6,57 +6,16 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Tuple
 
+import filetype
+
 from . import util
 
 # TODO:
-# import icalendar
-# - run black
+import icalendar
 
 log = logging.getLogger("kousu.flyerocr.__main__")
 
 PRODID = "-//flyerocr//EN"
-
-
-def fold_line(line):
-    """Fold a content line per RFC 5545: at 75 octets, continuation lines start with a space."""
-    encoded = line.encode("utf-8")
-    if len(encoded) <= 75:
-        return line
-    chunks = []
-    while len(encoded) > 75:
-        # first chunk is 75 octets, subsequent are 74 (leading space takes 1)
-        limit = 75 if not chunks else 74
-        cut = limit
-        # don't split in the middle of a multi-byte UTF-8 character
-        while cut > 0 and (encoded[cut] & 0xC0) == 0x80:
-            cut -= 1
-        chunks.append(encoded[:cut])
-        encoded = encoded[cut:]
-    if encoded:
-        chunks.append(encoded)
-    return (b"\r\n ".join(chunks)).decode("utf-8")
-
-
-def escape_ics_text(text):
-    """Escape special characters for ICS text values."""
-    text = text.replace("\\", "\\\\")
-    text = text.replace(";", "\\;")
-    text = text.replace(",", "\\,")
-    text = text.replace("\n", "\\n")
-    return text
-
-
-def format_datetime(dt_str):
-    """Convert '2026-03-08 18:30:00' to '20260308T183000'."""
-    return dt_str.replace("-", "").replace(" ", "T").replace(":", "")
-
-
-def datetime2ics(T):
-    if isinstance(T, datetime):
-        # note: datetimes are also dates; so this case has to be first
-        return T.strftime("%Y%m%dT%H%M%S")
-    elif isinstance(T, date):
-        return T.strftime("%Y%m%d")
 
 
 def _interpret_date(
@@ -116,17 +75,7 @@ def make(event, length_limit=None):
         event.get("end_time"),
     )
     if not dtstart:
-        raise ValueError("Unknown date")
-
-    now = datetime2ics(datetime.today())
-    dtstart = datetime2ics(dtstart)
-    dtend = datetime2ics(dtend)
-
-    tzid = "America/Montreal"
-    if tzid:
-        dt_prefix = f";TZID={tzid}"
-    else:
-        dt_prefix = ""
+        raise ValueError("Event has no date.")
 
     description = description or ""
     # clip the description for sanity
@@ -139,37 +88,39 @@ def make(event, length_limit=None):
         description += f"\n\n{url}"
     description = description.strip()
 
-    lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        f"PRODID:{PRODID}",
-        "BEGIN:VEVENT",
-        fold_line(f"DTSTAMP{dt_prefix}:{format_datetime(now)}"),
-        fold_line(f"DTSTART{dt_prefix}:{format_datetime(dtstart)}"),
-        fold_line(f"DTEND{dt_prefix}:{format_datetime(dtend)}"),
-        fold_line(f"SUMMARY:{escape_ics_text(summary)}"),
-        fold_line(f"DESCRIPTION:{escape_ics_text(description)}"),
-    ]
+    cal = icalendar.Calendar()
+    cal["prodid"] = PRODID
+
+    event = icalendar.Event()
+    cal.add_component(event)
+
+    event.add("uid", id)
+    event.add("summary", summary)
+    event.add("description", description)
+    event.add("dtstamp", datetime.today())
+    event.add("dtstart", dtstart)
+    event.add("dtend", dtend)
+
     if image:
-        if image.startswith("https://"):
-            lines.append(fold_line(f"IMAGE;VALUE=URI:{image}"))
-        elif os.path.exists(image):
-            lines.append(
-                fold_line(
-                    f"IMAGE;VALUE=BINARY;ENCODING=BASE64;FMTTYPE={mimetypes.guess_type(image)}:{base64.b64encode(open(image,'rb').read())}"
-                )
-            )
+        if isinstance(image, str) and image.startswith("https://"):
+            event.add("image", image, paramters={"value": "uri"})
         else:
-            raise TypeError("Unable to interpret image={image}")
+            image = util._load_bytes(image)
+            event.add(
+                "image",
+                base64.b64encode(image),
+                parameters={
+                    "value": "binary",
+                    "encoding": "base64",
+                    "fmtype": filetype.guess(image).mime,
+                },
+            )
     if url:
-        lines.append(fold_line(f"URL:{url}"))
+        event.add("url", url)
     if location:
-        lines.append(fold_line(f"LOCATION:{escape_ics_text(location)}"))
-    lines += [
-        "END:VEVENT",
-        "END:VCALENDAR",
-    ]
-    return "\r\n".join(lines) + "\r\n"
+        event.add("location", location)
+
+    return cal.to_ical().decode("utf-8")
 
 
 def save(event, output_path: str | Path):
