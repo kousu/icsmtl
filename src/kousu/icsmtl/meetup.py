@@ -66,6 +66,7 @@ parser.add_argument(
     help="The group's URL name (e.g. yellowdoor)",
 )
 
+
 def location_string(venue):
     if not venue:
         return None
@@ -83,6 +84,7 @@ def location_string(venue):
         parts.append(venue["city"])
     return ", ".join(parts) if parts else None
 
+
 def scrape_event(edge):
     event = edge["node"]
 
@@ -93,12 +95,12 @@ def scrape_event(edge):
     dtstart, dtend = interpret_datetime(dtstart.date(), None, dtstart.time(), None)
 
     event = {
-        'title': event["title"],
-        'dtstart': dtstart,
-        'dtend': dtend,
-        'description': event.get("description"),
-        'location': location_string(event.get("venue")),
-        'url': event["eventUrl"],
+        "title": event["title"],
+        "dtstart": dtstart,
+        "dtend": dtend,
+        "description": event.get("description"),
+        "location": location_string(event.get("venue")),
+        "url": event["eventUrl"],
         #'price': ... ?,
     }
 
@@ -124,7 +126,6 @@ def scrape(group: str, output_dir: str | Path):
         print(f"\t{event['url']} => {filename}")
 
 
-
 def main():
     args = parser.parse_args()
     output_dir = os.path.join(args.output_dir, "meetup", args.urlname)
@@ -135,6 +136,7 @@ def main():
     with open(output_dir + ".ics", "wb") as fd:
         fd.write(merged_calendar.to_ical())
         print("Output to", os.path.relpath(fd.name, "."))
+
 
 if __name__ == "__main__":
     main()

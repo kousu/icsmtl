@@ -6,6 +6,7 @@ import icalendar
 
 PRODID = "-//icsmtl//ics-cat//EN"
 
+
 def cat(files):
     cal = icalendar.Calendar()
     cal["prodid"] = PRODID
@@ -26,7 +27,9 @@ def main():
     )
     args = parser.parse_args()
 
-    sys.stdout.buffer.write(cat(args.inputs).to_ical()) # .buffer because icalendar works in bytes
+    sys.stdout.buffer.write(
+        cat(args.inputs).to_ical()
+    )  # .buffer because icalendar works in bytes
 
 
 if __name__ == "__main__":

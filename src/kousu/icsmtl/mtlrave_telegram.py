@@ -16,7 +16,6 @@ from kousu.flyerocr.ocr import ocr_flyer
 from kousu.flyerocr.ics import save as save_ics
 from kousu.flyerocr.catics import cat as cat_ics
 
-
 CHANNEL_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "icsmtl", "mtlrave_telegram")
 POSTS_DIR = os.path.join(CACHE_DIR, "posts")
@@ -57,10 +56,8 @@ def extract_image_url(style):
     return m.group(1) if m else None
 
 
-def fetch_telegram_posts(session, url): # -> seq[Tuple[post_url, image_url, caption]]:
-    """
-
-    """
+def fetch_telegram_posts(session, url):  # -> seq[Tuple[post_url, image_url, caption]]:
+    """ """
     assert url.startswith("https://t.me/s/")
 
     resp = session.get(url, timeout=30)
@@ -80,12 +77,12 @@ def fetch_telegram_posts(session, url): # -> seq[Tuple[post_url, image_url, capt
         photo = post.select_one("a.tgme_widget_message_photo_wrap")
         if photo:
             img_url = extract_image_url(photo.get("style"))
-            post_url = photo['href']
+            post_url = photo["href"]
         if not img_url:
             video = post.select_one("i.tgme_widget_message_video_thumb")
             if video:
                 img_url = extract_image_url(video.get("style"))
-                post_url = video.find_parent('a')['href']
+                post_url = video.find_parent("a")["href"]
 
         if not img_url:
             print(f"  Post {post_id}: no image, skipping")
@@ -98,14 +95,15 @@ def fetch_telegram_posts(session, url): # -> seq[Tuple[post_url, image_url, capt
         yield post_id, post_url, img_url, caption, caption_url
 
 
-
 def fetch_day(session, d, output_dir):
     """Fetch and cache Telegram posts for a given date."""
     tag = date_tag(d)
     url = f"{CHANNEL_URL}?q=%23{tag}"
     print(f"[{d}] Fetching {url}")
 
-    for post_id, post_url, img_url, caption, caption_url in fetch_telegram_posts(session, url):
+    for post_id, post_url, img_url, caption, caption_url in fetch_telegram_posts(
+        session, url
+    ):
 
         # Determine file extension from URL
         ext = os.path.splitext(img_url.split("?")[0])[-1] or ".jpg"
@@ -158,12 +156,13 @@ def fetch_day(session, d, output_dir):
         # # Tricky:
         # # We already used a heuristic in ocr_flyer to fixup the dates
         # # should we have not done that?
-        delta = (event["dtend"] - event["dtstart"])
-        if isinstance(event['dtstart'], date):
-            event['dtstart'] = d
-        elif isinstance(event['dtstart'], datetime):
-            event['dtstart'] = datetime.combine(d, event['dtstart'].time())
-        event['dtend'] = event['dtstart'] + delta
+        delta = event["dtend"] - event["dtstart"]
+        if isinstance(event["dtstart"], datetime):
+            event["dtstart"] = datetime.combine(d, event["dtstart"].time())
+        elif isinstance(event["dtstart"], date):
+            # BEWARE: datetimes are dates, so this case has to be SECOND
+            event["dtstart"] = d
+        event["dtend"] = event["dtstart"] + delta
 
         # We also know the timezone
         tz = ZoneInfo("America/Montreal")
@@ -179,9 +178,9 @@ def fetch_day(session, d, output_dir):
         event["url"] = caption_url if caption_url else f"{CHANNEL_URL}/{post_id}"
 
         # add (plaintext) caption
-        if event['description'] is not None and caption.strip():
+        if event["description"] is not None and caption.strip():
             if caption.strip():
-                event['description'] += f"\n\n{caption}"
+                event["description"] += f"\n\n{caption}"
 
         # Save our results
         #
@@ -216,6 +215,7 @@ parser.add_argument(
     default=DEFAULT_OUTPUT_DIR,
     help=f"Output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
 )
+
 
 def main():
     args = parser.parse_args()

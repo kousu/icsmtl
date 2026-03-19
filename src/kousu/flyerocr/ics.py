@@ -18,12 +18,13 @@ PRODID = "-//flyerocr//EN"
 
 def make(event, length_limit=None):
     """Build a single-event VCALENDAR string."""
+    # log.debug(event)
     id = event.get("id") or str(uuid.uuid6())
     summary = event.get("title")
-    dtstart, dtend = event.get('dtstart'), event.get('dtend')
+    dtstart, dtend = event.get("dtstart"), event.get("dtend")
     description = event.get("description")
     location = event.get("location")
-    image = event.get('image')
+    image = event.get("image")
     performers = event.get("performers")
     price = event.get("price")
     url = event.get("url")
@@ -38,8 +39,10 @@ def make(event, length_limit=None):
         description = description[:length_limit]
     if performers:
         if isinstance(performers, list):
-            performers = "\n* ".join(performers)
-        description += f"Performers:\n{performers}"
+            performers = "\n".join(f"* {p}" for p in performers)
+        description += (
+            f"\n\nPerformers:{"\n\n" if "\n" in performers else " "}{performers}"
+        )
     if price:
         description += f"\n\nPrice: {price}"
     if url and url not in description:
@@ -52,7 +55,7 @@ def make(event, length_limit=None):
     event = icalendar.Event()
     cal.add_component(event)
 
-    #for key, value in event.items(): event.add(key, value)
+    # for key, value in event.items(): event.add(key, value)
     # but there's a couple of exceptions that make it simpler to unroll the loop
 
     event.add("uid", id)

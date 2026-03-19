@@ -40,8 +40,12 @@ def _load_bytes(data: str | Path | bytes | IO[bytes]) -> bytes:
     ), "At this point, data should have been coerced to bytes"
     return data
 
+
 def interpret_datetime(
-    start_date: date | None, end_date: date | None, start_time: time | None, end_time: time | None
+    start_date: date | None,
+    end_date: date | None,
+    start_time: time | None,
+    end_time: time | None,
 ) -> Tuple[date | datetime, date | datetime]:
     """
     mangle the date info into dtstart/dtend, doing our best to guess missing information if it wasn't on the flyer or parsed badly
@@ -103,7 +107,14 @@ def interpret_datetime(
                 # or it might mean starting at 5pm February 1
                 # we interpret this as "February 16th, 5pm -> February 19th, 5pm"
                 # which at least shows that it's a multiday event and retains the start time
-                log.warn("Missing end time in (%s, %s) -> (%s, %s). Assuming end_time = %s", start_date, start_time, end_date, end_time, start_time)
+                log.warn(
+                    "Missing end time in (%s, %s) -> (%s, %s). Assuming end_time = %s",
+                    start_date,
+                    start_time,
+                    end_date,
+                    end_time,
+                    start_time,
+                )
                 dtend = datetime.combine(end_date, start_time)
         else:
             if not end_date:
@@ -119,6 +130,10 @@ def interpret_datetime(
                 dtend = datetime.combine(end_date, end_time)
 
     if dtend <= dtstart:
-        log.warn("Impossible date range interpreted: %s - %s. This event will not be importable.", dtstart, dtend)
+        log.warn(
+            "Impossible date range interpreted: %s - %s. This event will not be importable.",
+            dtstart,
+            dtend,
+        )
 
     return dtstart, dtend

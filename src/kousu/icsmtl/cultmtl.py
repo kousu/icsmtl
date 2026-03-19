@@ -35,6 +35,7 @@ parser.add_argument(
     help=f"Output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
 )
 
+
 def scrape_item(item):
 
     title = item.find("title")
@@ -43,9 +44,7 @@ def scrape_item(item):
     dtstart = item.find("event_listing:start_date") or item.find("start_date")
     dtend = item.find("event_listing:end_date") or item.find("end_date")
     location = item.find("event_listing:location") or item.find("location")
-    ticket_price = item.find("event_listing:ticket_price") or item.find(
-        "ticket_price"
-    )
+    ticket_price = item.find("event_listing:ticket_price") or item.find("ticket_price")
 
     if not title or not dtstart or not dtend:
         return
@@ -67,13 +66,13 @@ def scrape_item(item):
     description = "\n\n".join(description)
 
     return {
-        'title': title,
-        'dtstart': dtstart,
-        'dtend': dtend,
-        'description': description or None,
-        'location': location or None,
-        'price': ticket_price.get_text(strip=True),
-        'url': link.get_text(strip=True) if link else None,
+        "title": title,
+        "dtstart": dtstart,
+        "dtend": dtend,
+        "description": description or None,
+        "location": location or None,
+        "price": ticket_price.get_text(strip=True),
+        "url": link.get_text(strip=True) if link else None,
     }
 
 
@@ -108,6 +107,7 @@ def main():
     with open(args.output_dir + ".ics", "wb") as fd:
         fd.write(merged_calendar.to_ical())
         print("Output to", os.path.relpath(fd.name, "."))
+
 
 if __name__ == "__main__":
     main()

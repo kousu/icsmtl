@@ -11,10 +11,9 @@ import logging
 
 import filetype
 from xdg.BaseDirectory import xdg_cache_home
-import requests # TODO: httpx?
+import requests  # TODO: httpx?
 
 from .util import _load_bytes, interpret_datetime
-
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
 
     image_data = base64.standard_b64encode(image_data).decode("utf-8")
 
-    if os.environ.get('DONT_ASK_CLAUDE'):
+    if os.environ.get("DONT_ASK_CLAUDE"):
         return dedent("""
             {
               "is_event": true,
@@ -110,8 +109,9 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
     return resp.json()["content"][0]["text"]
 
 
-
-def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes], caption: str | None = None):
+def _ocr_flyer_uncached(
+    image: str | Path | bytes | IO[bytes], caption: str | None = None
+):
     """Extract event info from a flyer image.
 
     Args:
@@ -176,7 +176,9 @@ def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes], caption: str | No
     return event
 
 
-def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes], caption: str | None = None):
+def _ocr_flyer_cached(
+    image: str | Path | bytes | IO[bytes], caption: str | None = None
+):
     filename = None
     if isinstance(image, (str, Path)):
         filename = str(image)
@@ -195,7 +197,9 @@ def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes], caption: str | None
 
     if os.path.exists(json_path):
         with open(json_path, "r", encoding="utf-8") as fd:
-            log.info(f"Loading OCR {"for " + filename + " " if filename else ""}from '{json_path}'")
+            log.info(
+                f"Loading OCR {"for " + filename + " " if filename else ""}from '{json_path}'"
+            )
             event = fd.read()
     else:
         try:
@@ -246,6 +250,7 @@ def ocr_flyer(image: str | Path | bytes | IO[bytes], caption: str | None = None)
                 except ValueError as exc:
                     log.warn("Unable to parse %s '%s': %s", type.__name__, value, exc)
 
+    log.debug(event)
     # Fixup time
     dtstart, dtend = interpret_datetime(
         event.get("date"),
@@ -254,11 +259,13 @@ def ocr_flyer(image: str | Path | bytes | IO[bytes], caption: str | None = None)
         event.get("end_time"),
     )
 
-    for field in ['date','end_date','start_time','end_time']:
+    for field in ["date", "end_date", "start_time", "end_time"]:
         if field in event:
             del event[field]
 
-    event['dtstart'] = dtstart
-    event['dtend'] = dtend
+    event["dtstart"] = dtstart
+    event["dtend"] = dtend
+
+    log.debug(event)
 
     return event
