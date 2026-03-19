@@ -23,7 +23,10 @@ CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "flyersocr")
 
 def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -> str:
 
-    # TODO: there is an 'import anthropic' library
+    # there is an 'import anthropic' library
+    # but it adds 17MB (!) to the venv and, for this simple case,
+    # the code looks almost identical. So no.
+
     if not ANTHROPIC_API_KEY:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
 
