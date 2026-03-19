@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 
 from icsmtl.util import make_ics, make_filename
 
-
 FEED_URL = "https://cultmtl.com?feed=event_feed"
 DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events")
 PRODID = "-//icsmtl//cultmtl//EN"
@@ -17,7 +16,8 @@ def main():
         description="Scrape events from the Cult MTL RSS feed into .ics files"
     )
     parser.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         default=DEFAULT_OUTPUT_DIR,
         help=f"Output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
     )
@@ -44,7 +44,9 @@ def main():
         location = item.find("event_listing:location") or item.find("location")
         start_date = item.find("event_listing:start_date") or item.find("start_date")
         end_date = item.find("event_listing:end_date") or item.find("end_date")
-        ticket_price = item.find("event_listing:ticket_price") or item.find("ticket_price")
+        ticket_price = item.find("event_listing:ticket_price") or item.find(
+            "ticket_price"
+        )
 
         if not title or not start_date or not end_date:
             continue
@@ -64,7 +66,16 @@ def main():
 
         description = "\n\n".join(desc_parts)
 
-        ics_text = make_ics(title_text, description, dtstart, dtend, prodid=PRODID, location=location, tzid="America/Montreal", url=link_text or None)
+        ics_text = make_ics(
+            title_text,
+            description,
+            dtstart,
+            dtend,
+            prodid=PRODID,
+            location=location,
+            tzid="America/Montreal",
+            url=link_text or None,
+        )
         filename = make_filename(dtstart, title_text)
         filepath = os.path.join(args.output_dir, filename)
 

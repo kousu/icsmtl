@@ -16,6 +16,7 @@ log = logging.getLogger("kousu.flyerocr.__main__")
 
 PRODID = "-//flyerocr//EN"
 
+
 def fold_line(line):
     """Fold a content line per RFC 5545: at 75 octets, continuation lines start with a space."""
     encoded = line.encode("utf-8")
@@ -57,7 +58,10 @@ def datetime2ics(T):
     elif isinstance(T, date):
         return T.strftime("%Y%m%d")
 
-def _interpret_date(start_date, end_date, start_time, end_time) -> Tuple[date | datetime, date | datetime]:
+
+def _interpret_date(
+    start_date, end_date, start_time, end_time
+) -> Tuple[date | datetime, date | datetime]:
     """
     mangle the date info into dtstart/dtend, doing our best to guess missing information if it wasn't on the flyer or parsed badly
     """
@@ -94,19 +98,25 @@ def _interpret_date(start_date, end_date, start_time, end_time) -> Tuple[date | 
 
     return dtstart, dtend
 
+
 def make(event, length_limit=None):
     """Build a single-event VCALENDAR string."""
-    summary = event.get('title')
-    description = event.get('description')
-    location=event.get('location')
-    image=None # TODO: embed image as a URL or base64
-    price=event.get('price')
-    url=event.get('url')
-    id=event.get('id') or str(uuid.uuid6())
+    summary = event.get("title")
+    description = event.get("description")
+    location = event.get("location")
+    image = None  # TODO: embed image as a URL or base64
+    price = event.get("price")
+    url = event.get("url")
+    id = event.get("id") or str(uuid.uuid6())
 
-    dtstart, dtend = _interpret_date(event.get('date'), event.get('end_date'), event.get('start_time'), event.get('end_time'))
+    dtstart, dtend = _interpret_date(
+        event.get("date"),
+        event.get("end_date"),
+        event.get("start_time"),
+        event.get("end_time"),
+    )
     if not dtstart:
-        raise ValueError('Unknown date')
+        raise ValueError("Unknown date")
 
     now = datetime2ics(datetime.today())
     dtstart = datetime2ics(dtstart)
@@ -118,11 +128,11 @@ def make(event, length_limit=None):
     else:
         dt_prefix = ""
 
-    description = description or ''
+    description = description or ""
     # clip the description for sanity
     # # this should go into make_ics
     if length_limit is not None:
-       description = description[:length_limit]
+        description = description[:length_limit]
     if price:
         description += f"\n\nPrice: {price}"
     if url and url not in description:
@@ -144,9 +154,13 @@ def make(event, length_limit=None):
         if image.startswith("https://"):
             lines.append(fold_line(f"IMAGE;VALUE=URI:{image}"))
         elif os.path.exists(image):
-            lines.append(fold_line(f"IMAGE;VALUE=BINARY;ENCODING=BASE64;FMTTYPE={mimetypes.guess_type(image)}:{base64.b64encode(open(image,'rb').read())}"))
+            lines.append(
+                fold_line(
+                    f"IMAGE;VALUE=BINARY;ENCODING=BASE64;FMTTYPE={mimetypes.guess_type(image)}:{base64.b64encode(open(image,'rb').read())}"
+                )
+            )
         else:
-            raise TypeError('Unable to interpret image={image}')
+            raise TypeError("Unable to interpret image={image}")
     if url:
         lines.append(fold_line(f"URL:{url}"))
     if location:
@@ -156,6 +170,7 @@ def make(event, length_limit=None):
         "END:VCALENDAR",
     ]
     return "\r\n".join(lines) + "\r\n"
+
 
 def save(event, output_path: str | Path):
     filename = util.filename(event)
@@ -171,6 +186,8 @@ def save(event, output_path: str | Path):
 
     return output_path
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

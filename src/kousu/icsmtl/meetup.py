@@ -6,7 +6,6 @@ from gql.transport.requests import RequestsHTTPTransport
 
 from icsmtl.util import make_ics, make_filename
 
-
 DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events")
 PRODID = "-//icsmtl//meetup//EN"
 
@@ -64,7 +63,8 @@ def main():
         help="The group's URL name (e.g. yellowdoor)",
     )
     parser.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         default=DEFAULT_OUTPUT_DIR,
         help=f"Base output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
     )
@@ -103,8 +103,13 @@ def main():
         location = build_location(event.get("venue"))
 
         ics_text = make_ics(
-            title, description, dtstart, dtend,
-            prodid=PRODID, location=location, url=event_url or None,
+            title,
+            description,
+            dtstart,
+            dtend,
+            prodid=PRODID,
+            location=location,
+            url=event_url or None,
         )
         filename = make_filename(dtstart, title)
         filepath = os.path.join(output_dir, filename)

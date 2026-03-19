@@ -2,7 +2,6 @@ import argparse
 import re
 import sys
 
-
 PRODID = "-//icsmtl//catics//EN"
 
 
@@ -25,7 +24,8 @@ def main():
         help="Input .ics files",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         default="-",
         help="Output file (default: stdout)",
     )

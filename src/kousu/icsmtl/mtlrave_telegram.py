@@ -35,9 +35,12 @@ def extract_caption_url(caption_el):
     """Extract the first URL in the caption that's not a link back to Telegram."""
     if not caption_el:
         return None
-    a_tag = caption_el.find("a",
-                            href=lambda h: h.startswith("http") # only accept external links; links back to Telegram are noise
-                        )
+    a_tag = caption_el.find(
+        "a",
+        href=lambda h: h.startswith(
+            "http"
+        ),  # only accept external links; links back to Telegram are noise
+    )
     return urljoin(SEARCH_URL, a_tag["href"]) if a_tag else None
 
 
@@ -47,15 +50,13 @@ def extract_image_url(style):
     return m.group(1) if m else None
 
 
-
-
 def fetch_day(session, d, output_dir):
     """Fetch and cache Telegram posts for a given date."""
     tag = date_tag(d)
     url = f"{SEARCH_URL}?q=%23{tag}"
     print(f"[{d}] Fetching {url}")
 
-    date_str = d.strftime('%Y-%m-%d')
+    date_str = d.strftime("%Y-%m-%d")
 
     resp = session.get(url, timeout=30)
     resp.raise_for_status()
@@ -104,7 +105,9 @@ def fetch_day(session, d, output_dir):
 
             os.makedirs(post_dir, exist_ok=True)
             if caption_url:
-                with open(os.path.join(post_dir, "url.txt"), "w", encoding="utf-8") as f:
+                with open(
+                    os.path.join(post_dir, "url.txt"), "w", encoding="utf-8"
+                ) as f:
                     f.write(caption_url)
             print(f"  Post {SEARCH_URL}/{post_id} : downloading flyer{ext}")
             img_resp = session.get(img_url, timeout=30)
@@ -116,10 +119,12 @@ def fetch_day(session, d, output_dir):
                 with open(canonical_flyer, "wb") as f:
                     f.write(img_data)
 
-            if os.path.lexists(flyer_path): # ln -s --force
+            if os.path.lexists(flyer_path):  # ln -s --force
                 os.remove(flyer_path)
             os.symlink(os.path.relpath(canonical_flyer, post_dir), flyer_path)
-            with open(os.path.join(post_dir, "caption.txt"), "w", encoding="utf-8") as f:
+            with open(
+                os.path.join(post_dir, "caption.txt"), "w", encoding="utf-8"
+            ) as f:
                 f.write(caption)
 
         # Phase 2: Extract .ics from flyer
@@ -144,14 +149,14 @@ def fetch_day(session, d, output_dir):
 
         if os.path.exists(url_path):
             with open(url_path, "r", encoding="utf-8") as f:
-                event['url'] = f.read().strip()
+                event["url"] = f.read().strip()
 
-        if not event.get('url'):
-            event['url'] = f"https://t.me/s/mtlrave/{post_id}"
+        if not event.get("url"):
+            event["url"] = f"https://t.me/s/mtlrave/{post_id}"
 
         # clip the description for sanity
-        if event['description'] is not None:
-            event['description'] = event['description'][:500]
+        if event["description"] is not None:
+            event["description"] = event["description"][:500]
 
         # print(event)
         #
@@ -159,12 +164,12 @@ def fetch_day(session, d, output_dir):
 
         tz = ZoneInfo("America/Montreal")
 
-        if event.get('date') and event.get('end_date'):
-            delta = event['end_date'] - event['date']
-            event['end_date'] = (d + delta)
-        event['date'] = d
+        if event.get("date") and event.get("end_date"):
+            delta = event["end_date"] - event["date"]
+            event["end_date"] = d + delta
+        event["date"] = d
 
-        for field in ['date','end_date']:
+        for field in ["date", "end_date"]:
             if event.get(field):
                 event[field] = event[field].replace(tzinfo=tz)
 
@@ -184,19 +189,22 @@ def main():
         description="Download flyer images and captions from the @mtlrave Telegram channel"
     )
     parser.add_argument(
-        "-s", "--start",
+        "-s",
+        "--start",
         type=lambda s: date.fromisoformat(s),
         default=date.today(),
         help="Start date (YYYY-MM-DD, default: today)",
     )
     parser.add_argument(
-        "-e", "--end",
+        "-e",
+        "--end",
         type=lambda s: date.fromisoformat(s),
         default=None,
         help="End date (YYYY-MM-DD, default: start + 3 months)",
     )
     parser.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         default=DEFAULT_OUTPUT_DIR,
         help=f"Output directory for .ics files (default: {DEFAULT_OUTPUT_DIR})",
     )
@@ -217,8 +225,12 @@ def main():
         d += timedelta(days=1)
 
     with open(args.output_dir + ".ics", "w") as merged_calendar:
-        subprocess.run(['catics'] + glob.glob(os.path.join(args.output_dir, "*.ics")), stdout=merged_calendar, check=True)
-        print("Output to", os.path.relpath(merged_calendar.name, '.'))
+        subprocess.run(
+            ["catics"] + glob.glob(os.path.join(args.output_dir, "*.ics")),
+            stdout=merged_calendar,
+            check=True,
+        )
+        print("Output to", os.path.relpath(merged_calendar.name, "."))
 
 
 if __name__ == "__main__":

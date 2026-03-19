@@ -18,8 +18,9 @@ from .util import _load_bytes
 log = logging.getLogger(__name__)
 
 USER_AGENT = "icsmtl/0.1"
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", '').strip().split('\n',1)[0]
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip().split("\n", 1)[0]
 CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "flyersocr")
+
 
 def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -> str:
 
@@ -28,10 +29,12 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
 
     image_data = _load_bytes(image)
-    media_type =  filetype.guess(image_data).mime
+    media_type = filetype.guess(image_data).mime
     supported = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if media_type not in supported: # or .startswith("image/") ?
-        raise ValueError(f"Unsupported image type '{media_type}'. Must be one of: {supported}")
+    if media_type not in supported:  # or .startswith("image/") ?
+        raise ValueError(
+            f"Unsupported image type '{media_type}'. Must be one of: {supported}"
+        )
 
     image_data = base64.standard_b64encode(image_data).decode("utf-8")
 
@@ -99,9 +102,11 @@ def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
     """
 
     now = date.today()
-        # add this to the prompt to debug things:
-        # - reasoning: an explanation in plain english of your reasoning chain for selecting each value
-    event = ask_claude_about_image(image, dedent(f"""
+    # add this to the prompt to debug things:
+    # - reasoning: an explanation in plain english of your reasoning chain for selecting each value
+    event = ask_claude_about_image(
+        image,
+        dedent(f"""
         Try to identify the event within this flyer. Determine the title and if available
         the date, time, location, price, performers, ticket or information URLs,
         and special instructions.
@@ -133,18 +138,20 @@ def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
         - Do NOT wrap the output in markdown code quotes.
         - Do NOT wrap the output in '```json'.
         - Do NOT include a preface nor summary.
-    """).lstrip())
+    """).lstrip(),
+    )
 
     # DEBUG
     # print(event)
     # print()
 
     # strip markdown code quotes (Haiku in particular seems to be a fan of these)
-    event=event.strip()
-    if event.startswith('```') and event.endswith('```'):
-        event = '\n'.join(event.split('\n')[1:-1])
+    event = event.strip()
+    if event.startswith("```") and event.endswith("```"):
+        event = "\n".join(event.split("\n")[1:-1])
 
     return event
+
 
 def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes]):
     filename = None
@@ -160,7 +167,7 @@ def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes]):
 
     if os.path.exists(exc_path):
         log.warn("Flyer has a cached exception %s", exc_path)
-        with open(exc_path,'r') as fd:
+        with open(exc_path, "r") as fd:
             raise Exception(f"Cached error: {fd.readline()}")
 
     if os.path.exists(json_path):
@@ -184,25 +191,26 @@ def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes]):
         event = json.loads(event)
     except Exception as exc:
         raise Exception(f"Claude returned malformed json:\n\n{event}") from exc
-    event['id'] = flyer_hash
+    event["id"] = flyer_hash
 
-    if not event.get('is_event', False) or not event.get('date'):
-        desc = event.get('description', '')
-        raise ValueError('Not an event' + (f": {desc}" if desc else ""))
+    if not event.get("is_event", False) or not event.get("date"):
+        desc = event.get("description", "")
+        raise ValueError("Not an event" + (f": {desc}" if desc else ""))
 
     return event
+
 
 def ocr_flyer(image: str | Path | bytes | IO[bytes]):
     event = _ocr_flyer_cached(image)
 
     # (loose) Typechecks
 
-    event['is_event'] = bool(event.get('is_event', False))
+    event["is_event"] = bool(event.get("is_event", False))
 
-    for (type, fmt, fields) in [
-                (date,"%Y-%m-%d", ['date','end_date']),
-                (time,"%H:%M", ['start_time','end_time'])
-            ]:
+    for type, fmt, fields in [
+        (date, "%Y-%m-%d", ["date", "end_date"]),
+        (time, "%H:%M", ["start_time", "end_time"]),
+    ]:
         for field in fields:
             # this makes sure
             #   - dates become datetime.date objects
@@ -214,6 +222,5 @@ def ocr_flyer(image: str | Path | bytes | IO[bytes]):
                     event[field] = type.strptime(value, fmt)
                 except ValueError as exc:
                     log.warn("Unable to parse %s '%s': %s", type.__name__, value, exc)
-
 
     return event

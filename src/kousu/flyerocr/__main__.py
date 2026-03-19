@@ -15,30 +15,26 @@ logging.basicConfig(
 )
 
 
-parser = argparse.ArgumentParser(
-    description="Convert flyer images to iCal files"
-)
+parser = argparse.ArgumentParser(description="Convert flyer images to iCal files")
 parser.add_argument(
-    "-o", "--output-dir",
+    "-o",
+    "--output-dir",
     default=".",
     help="Output directory for .ics files (default: ./)",
 )
 parser.add_argument(
-    '-v', '--verbose',
-    action='count',
-    default=0,
-    help='Enable verbose logging'
+    "-v", "--verbose", action="count", default=0, help="Enable verbose logging"
 )
-parser.add_argument('flyers', nargs='+', type=Path)
+parser.add_argument("flyers", nargs="+", type=Path)
 
 
 def main():
 
-    anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     if not anthropic_key:
-        parser.error('ANTHROPIC_API_KEY environment variable must be set')
+        parser.error("ANTHROPIC_API_KEY environment variable must be set")
         raise SystemExit(1)
-    os.environ['ANTHROPIC_API_KEY'] = anthropic_key.strip()
+    os.environ["ANTHROPIC_API_KEY"] = anthropic_key.strip()
 
     args = parser.parse_args()
 
@@ -47,19 +43,20 @@ def main():
     if args.verbose > 1:
         logging.getLogger().setLevel(logging.DEBUG)
 
-
     # ----------------------------
 
     for flyer in args.flyers:
-      # flyer = os.path.relpath(flyer)
-      try:
-          output_ics  = ics.save(ocr_flyer(flyer), args.output_dir)
-          print(f"{flyer} => {output_ics}")
-      except ValueError as exc:
-          print(f"Failed to parse {flyer}: {exc}")
-          if args.verbose:
-              import traceback
-              traceback.print_exc()
+        # flyer = os.path.relpath(flyer)
+        try:
+            output_ics = ics.save(ocr_flyer(flyer), args.output_dir)
+            print(f"{flyer} => {output_ics}")
+        except ValueError as exc:
+            print(f"Failed to parse {flyer}: {exc}")
+            if args.verbose:
+                import traceback
 
-if __name__ == '__main__':
+                traceback.print_exc()
+
+
+if __name__ == "__main__":
     main()
