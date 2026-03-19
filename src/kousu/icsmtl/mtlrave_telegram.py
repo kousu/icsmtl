@@ -149,7 +149,7 @@ def fetch_day(session, d, output_dir):
 
         ## Do The OCR
         #
-        event = ocr_flyer(img_data)
+        event = ocr_flyer(img_data, caption)
 
         # Tweak the event to read better
         #

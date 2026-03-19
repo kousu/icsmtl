@@ -9,7 +9,6 @@ import filetype
 
 from . import util
 
-# TODO:
 import icalendar
 
 log = logging.getLogger(__name__)

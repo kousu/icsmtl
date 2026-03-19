@@ -111,7 +111,7 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
 
 
 
-def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
+def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes], caption: str | None = None):
     """Extract event info from a flyer image.
 
     Args:
@@ -129,7 +129,7 @@ def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
         dedent(f"""
         Try to identify the event within this flyer. Determine the title and if available
         the date, time, location, price, performers, ticket or information URLs,
-        and special instructions.
+        and special instructions. {"There is a caption to help fill in missing details." if caption else ""}
 
         Dates and Times:
         Be aware it is possible for events to run overnight.
@@ -149,6 +149,7 @@ def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
         - location: venue/address or null
         - price: price or null
         - url: URL or null
+        -
         - description: Include other details like performers and special instructions using the ORIGINAL wording from the flyer. Keep the flyer's voice.
 
         Rules:
@@ -158,6 +159,8 @@ def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
         - Do NOT wrap the output in markdown code quotes.
         - Do NOT wrap the output in '```json'.
         - Do NOT include a preface nor summary.
+
+        {"<caption>{caption}</caption>" if caption else ""}
     """).lstrip(),
     )
 
@@ -173,7 +176,7 @@ def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
     return event
 
 
-def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes]):
+def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes], caption: str | None = None):
     filename = None
     if isinstance(image, (str, Path)):
         filename = str(image)
@@ -197,7 +200,7 @@ def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes]):
     else:
         try:
             log.info("Asking Claude%s", (f" about {filename}" if filename else ""))
-            event = _ocr_flyer_uncached(image)
+            event = _ocr_flyer_uncached(image, caption)
         except Exception as exc:
             with open(exc_path, "w") as fd:
                 print(f"{exc}", file=fd)
@@ -220,8 +223,8 @@ def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes]):
     return event
 
 
-def ocr_flyer(image: str | Path | bytes | IO[bytes]):
-    event = _ocr_flyer_cached(image)
+def ocr_flyer(image: str | Path | bytes | IO[bytes], caption: str | None = None):
+    event = _ocr_flyer_cached(image, caption)
 
     # (loose) Typechecks
 
