@@ -14,8 +14,8 @@ import requests
 from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
-from icsmtl.ocr import ocr_flyer
-from icsmtl.util import escape_ics_text, fold_line, make_ics, parse_ics, redate_ics
+from kousu.flyerocr.ocr import ocr_flyer
+from kousu.flyerocr.util import make_ics, redate_ics
 
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")

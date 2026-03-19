@@ -16,8 +16,14 @@ dependencies = [
 ]
 
 [project.scripts]
-catics = "icsmtl.catics:main"
-ics-ocr-flyer = "icsmtl.flyer:main"
-cultmtl = "icsmtl.cultmtl:main"
-meetup = "icsmtl.meetup:main"
-mtlrave-telegram = "icsmtl.mtlrave_telegram:main"
+# TODO: split flyerocr to a separate project
+flyerocr = "kousu.flyerocr.__main__:main"
+ics-cat = "kousu.flyerocr.catics:main"
+ics-cultmtl = "kousu.icsmtl.cultmtl:main"
+ics-meetup = "kousu.icsmtl.meetup:main"
+ics-mtlrave-telegram = "kousu.icsmtl.mtlrave_telegram:main"
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+]

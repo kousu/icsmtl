@@ -7,16 +7,17 @@ from datetime import datetime, timedelta
 import re
 
 import mimetypes
+# TODO: filetype
 import requests
 
 
 USER_AGENT = "icsmtl/0.1"
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", '').strip().split('\n',1)[0]
 
 
 def ask_claude_about_image(image_path: str, prompt: str) -> str:
-
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
+    # TODO: there is an 'import anthropic' library
+    if not ANTHROPIC_API_KEY:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
 
     # Detect media type from file extension
@@ -45,7 +46,7 @@ def ask_claude_about_image(image_path: str, prompt: str) -> str:
     resp = requests.post(
         "https://api.anthropic.com/v1/messages",
         headers={
-            "x-api-key": api_key,
+            "x-api-key": ANTHROPIC_API_KEY,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
             "User-Agent": USER_AGENT,
@@ -104,7 +105,7 @@ def ocr_flyer(image):
         # add this to the prompt to debug things:
         # - reasoning: an explanation in plain english of your reasoning chain for selecting each value
     event = ask_claude_about_image(image, dedent(f"""
-        Identify the event within this flyer. Determine the title and if available
+        Try to identify the event within this flyer. Determine the title and if available
         the date, time, location, price, performers, ticket or information URLs,
         and special instructions.
 
@@ -117,6 +118,7 @@ def ocr_flyer(image):
         Output:
         Return a JSON object with:
 
+        - is_event: bool (REQUIRED)
         - title: string (REQUIRED)
         - date: YYYY-MM-DD (use {now.strftime('%Y')} if year not shown)
         - end_date: YYYY-MM-DD or null (for multi-day events)
