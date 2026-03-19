@@ -42,6 +42,21 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
 
     image_data = base64.standard_b64encode(image_data).decode("utf-8")
 
+    if os.environ.get('DONT_ASK_CLAUDE'):
+        return dedent("""
+            {
+              "is_event": true,
+              "title": "Trashed. the debut.",
+              "date": "2026-01-08",
+              "end_date": "2026-01-09",
+              "start_time": "22:00",
+              "end_time": "03:00",
+              "location": "Bar Barbossa, Montreal",
+              "price": "$6 ATD",
+              "url": null,
+              "description": "the first volume of an electronic club night that seeks to explore the relationship between partying and social interaction. honestly, we just want you to come and have a good time.\n\nwith dj sets by: sineila, billy bondage, online threat, fangsie, & sophia fay.\n\nhosts: ariane, zak, logan — your new best friends who are gonna help you meet your new best friend.\n\nAlso featuring: dollgrip, yt2mp3, thugdoll"
+            }""")
+
     # print(prompt)  # DEBUG
 
     # Current models (as of early 2026) -- see https://platform.claude.com/docs/en/about-claude/models/overview
