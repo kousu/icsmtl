@@ -10,7 +10,6 @@ import hashlib
 import logging
 
 import filetype
-import requests
 from xdg.BaseDirectory import xdg_cache_home
 
 from .util import _load_bytes

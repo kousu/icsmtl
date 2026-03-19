@@ -15,8 +15,8 @@ import requests
 from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
-from kousu.flyerocr.ocr import make_ics
-from kousu.flyerocr.util import sanitize_title
+from kousu.flyerocr.ocr import ocr_flyer
+from kousu.flyerocr.ics import save as save_ics
 
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
@@ -173,15 +173,7 @@ def fetch_day(session, d, output_dir):
             if event.get(field):
                 event[field] = event[field].replace(tzinfo=tz)
 
-        # Build ICS
-        ics_content = make_ics(event)
-
-        filename = f"{date_str}-{sanitize_title(event['title'])}.ics"
-        output_path = os.path.join(output_dir, filename)
-        print(f"  Post {SEARCH_URL}/{post_id} => {filename}")
-        with open(output_path, "w", encoding="utf-8") as f:
-            # print(ics_content)
-            f.write(ics_content)
+        return save_ics(event)
 
 
 def main():
@@ -226,7 +218,7 @@ def main():
 
     with open(args.output_dir + ".ics", "w") as merged_calendar:
         subprocess.run(
-            ["catics"] + glob.glob(os.path.join(args.output_dir, "*.ics")),
+            ["ics-cat"] + glob.glob(os.path.join(args.output_dir, "*.ics")),
             stdout=merged_calendar,
             check=True,
         )
