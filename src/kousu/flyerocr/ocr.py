@@ -11,8 +11,10 @@ import logging
 
 import filetype
 from xdg.BaseDirectory import xdg_cache_home
+import requests # TODO: httpx?
 
 from .util import _load_bytes
+
 
 log = logging.getLogger(__name__)
 
