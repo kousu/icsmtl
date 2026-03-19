@@ -23,7 +23,8 @@ def make(event, length_limit=None):
     dtstart, dtend = event.get('dtstart'), event.get('dtend')
     description = event.get("description")
     location = event.get("location")
-    image = None  # TODO: embed image as a URL or base64
+    image = event.get('image')
+    performers = event.get("performers")
     price = event.get("price")
     url = event.get("url")
 
@@ -35,6 +36,10 @@ def make(event, length_limit=None):
     # # this should go into make_ics
     if length_limit is not None:
         description = description[:length_limit]
+    if performers:
+        if isinstance(performers, list):
+            performers = "\n* ".join(performers)
+        description += f"Performers:\n{performers}"
     if price:
         description += f"\n\nPrice: {price}"
     if url and url not in description:
