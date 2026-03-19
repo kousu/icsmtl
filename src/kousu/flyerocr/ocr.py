@@ -1,33 +1,39 @@
-"""Extract event details from flyer images using a vision API."""
-
 import os
-import base64, json
+from pathlib import Path
+from typing import IO
 from textwrap import dedent
-from datetime import datetime, timedelta
-import re
+from datetime import date, time
+import json
+import base64
+import traceback
+import hashlib
+import logging
 
-import mimetypes
-# TODO: filetype
+import filetype
 import requests
+from xdg.BaseDirectory import xdg_cache_home
 
+from .util import _load_bytes
+
+log = logging.getLogger(__name__)
 
 USER_AGENT = "icsmtl/0.1"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", '').strip().split('\n',1)[0]
+CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "flyersocr")
 
+def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -> str:
 
-def ask_claude_about_image(image_path: str, prompt: str) -> str:
     # TODO: there is an 'import anthropic' library
     if not ANTHROPIC_API_KEY:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
 
-    # Detect media type from file extension
-    media_type, _ = mimetypes.guess_type(image_path)
+    image_data = _load_bytes(image)
+    media_type =  filetype.guess(image_data).mime
     supported = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if media_type not in supported:
+    if media_type not in supported: # or .startswith("image/") ?
         raise ValueError(f"Unsupported image type '{media_type}'. Must be one of: {supported}")
 
-    with open(image_path, "rb") as f:
-        image_data = base64.standard_b64encode(f.read()).decode("utf-8")
+    image_data = base64.standard_b64encode(image_data).decode("utf-8")
 
     # print(prompt)  # DEBUG
 
@@ -78,20 +84,11 @@ def ask_claude_about_image(image_path: str, prompt: str) -> str:
         timeout=60,
     )
 
-    try:
-        resp.raise_for_status()
-    except Exception as exc:
-        try: # to get the 'error' message given by the server
-            # XXX this was for the other API so .. maybe doesn't work with claude ?
-            raise #Exception(resp.json()['error']) from exc
-        except:
-            # but if there's no message or something else goes wrong, fall back
-            raise exc
-
+    resp.raise_for_status()
     return resp.json()["content"][0]["text"]
 
 
-def ocr_flyer(image):
+def _ocr_flyer_uncached(image: str | Path | bytes | IO[bytes]):
     """Extract event info from a flyer image.
 
     Args:
@@ -101,7 +98,7 @@ def ocr_flyer(image):
         (title, date, ics_content) from the first event in the API response.
     """
 
-    now = datetime.today()
+    now = date.today()
         # add this to the prompt to debug things:
         # - reasoning: an explanation in plain english of your reasoning chain for selecting each value
     event = ask_claude_about_image(image, dedent(f"""
@@ -147,9 +144,76 @@ def ocr_flyer(image):
     if event.startswith('```') and event.endswith('```'):
         event = '\n'.join(event.split('\n')[1:-1])
 
+    return event
+
+def _ocr_flyer_cached(image: str | Path | bytes | IO[bytes]):
+    filename = None
+    if isinstance(image, (str, Path)):
+        filename = str(image)
+    image = _load_bytes(image)
+
+    # hashing the flyer lets us cache it so we don't burn lots of OCR cost
+    flyer_hash = hashlib.sha256(image).hexdigest()
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    json_path = os.path.join(CACHE_DIR, f"{flyer_hash}.json")
+    exc_path = os.path.join(CACHE_DIR, f"{flyer_hash}.exc")
+
+    if os.path.exists(exc_path):
+        log.warn("Flyer has a cached exception %s", exc_path)
+        with open(exc_path,'r') as fd:
+            raise Exception(f"Cached error: {fd.readline()}")
+
+    if os.path.exists(json_path):
+        with open(json_path, "r", encoding="utf-8") as fd:
+            log.info("Loading OCR for from '%s'", json_path)
+            event = fd.read()
+    else:
+        try:
+            log.info("Asking Claude%s", (f" about {filename}" if filename else ""))
+            event = _ocr_flyer_uncached(image)
+        except Exception as exc:
+            with open(exc_path, "w") as fd:
+                print(f"{exc}", file=fd)
+                traceback.print_exc(file=fd)
+            raise exc
+
+        with open(json_path, "w", encoding="utf-8") as fd:
+            fd.write(event)
+
     try:
         event = json.loads(event)
     except Exception as exc:
         raise Exception(f"Claude returned malformed json:\n\n{event}") from exc
+    event['id'] = flyer_hash
+
+    if not event.get('is_event', False) or not event.get('date'):
+        desc = event.get('description', '')
+        raise ValueError('Not an event' + (f": {desc}" if desc else ""))
+
+    return event
+
+def ocr_flyer(image: str | Path | bytes | IO[bytes]):
+    event = _ocr_flyer_cached(image)
+
+    # (loose) Typechecks
+
+    event['is_event'] = bool(event.get('is_event', False))
+
+    for (type, fmt, fields) in [
+                (date,"%Y-%m-%d", ['date','end_date']),
+                (time,"%H:%M", ['start_time','end_time'])
+            ]:
+        for field in fields:
+            # this makes sure
+            #   - dates become datetime.date objects
+            #   - times become datetime.time objects
+            # - but missing or otherwise unparseable => None
+            if event.get(field):
+                value, event[field] = event[field], None
+                try:
+                    event[field] = type.strptime(value, fmt)
+                except ValueError as exc:
+                    log.warn("Unable to parse %s '%s': %s", type.__name__, value, exc)
+
 
     return event

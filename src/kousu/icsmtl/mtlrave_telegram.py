@@ -9,22 +9,21 @@ import unicodedata
 import subprocess
 from urllib.parse import urljoin
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import requests
 from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
-from kousu.flyerocr.ocr import ocr_flyer
-from kousu.flyerocr.util import make_ics, redate_ics
+from kousu.flyerocr.ocr import make_ics
+from kousu.flyerocr.util import sanitize_title
 
 SEARCH_URL = "https://t.me/s/mtlrave"
 CACHE_DIR = os.path.join(xdg_cache_home, "icsmtl", "mtlrave_telegram")
 POSTS_DIR = os.path.join(CACHE_DIR, "posts")
 FLYERS_DIR = os.path.join(CACHE_DIR, "flyers")
-OCR_DIR = os.path.join(CACHE_DIR, "ocr")
 DEFAULT_OUTPUT_DIR = os.path.join(os.getcwd(), "events")
 USER_AGENT = "icsmtl/0.1"
-PRODID = "-//icsmtl//mtlrave-telegram//EN"
 
 
 def date_tag(d):
@@ -48,58 +47,7 @@ def extract_image_url(style):
     return m.group(1) if m else None
 
 
-def sanitize_title(title):
-    """Sanitize a title for use in filenames."""
-    name = unicodedata.normalize("NFKD", title)
-    name = name.encode("ascii", "ignore").decode("ascii")
-    return name.replace(" ", "_").replace("/", "_")
 
-
-def build_ics(event, id=None, PRODID=PRODID):
-    """
-    Convert OCR event JSON to an ics string
-    *mostly* what this does is handle the heuristics about turning ((start_date,end_date), (start_time,end_time)) into sensible timespans that will appear reasonable on a calendar app
-    """
-
-    ## mangle the date info into dtstart/dtend
-    start_date, end_date, start_time, end_time = event.get('date'), event.get('end_date'), event.get('start_time'), event.get('end_time')
-    if not date:
-        raise ValueError("date is required")
-
-    # Ignore end_time if there's no start_time to anchor it
-    if end_time and not start_time:
-        end_time = None
-
-    if not start_time:
-        # --- All-day cases ---
-        dtstart = date.strptime(start_date, "%Y-%m-%d")
-        if end_date:
-             # ???
-            dtend = date.strptime(end_date, "%Y-%m-%d")
-        else:
-            dtend = dtstart + timedelta(days=1)
-    else:
-        # --- Timed cases ---
-        dtstart = datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M")
-
-        if end_time:
-            end_base = datetime.strptime(end_time, "%H:%M")
-
-            dtend = dtstart.replace(hour=end_base.hour, minute=end_base.minute, second=0)
-            if dtend <= dtstart:
-                # End might be past midnight (e.g. party starts 22:00, ends 03:00)
-                dtend += timedelta(days=1)
-            # If an explicit end_date was given, use that date instead
-            if end_date:
-                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
-                dtend = dtend.replace(year=end_date_obj.year,
-                                        month=end_date_obj.month,
-                                        day=end_date_obj.day)
-        else:
-            # if we really don't know, assume it's 1 hour long
-            dtend = dtstart + timedelta(hours=1)
-
-    return make_ics(event['title'], event.get('description'), dtstart, dtend, PRODID, location=event.get('location'), price=event.get('price'), url=event.get('url'), id=id)
 
 def fetch_day(session, d, output_dir):
     """Fetch and cache Telegram posts for a given date."""
@@ -185,30 +133,7 @@ def fetch_day(session, d, output_dir):
         with open(flyer_path, "rb") as f:
             flyer_hash = hashlib.sha256(f.read()).hexdigest()
 
-        ocr_json_path = os.path.join(OCR_DIR, f"{flyer_hash}.json")
-        ocr_exc_path = os.path.join(OCR_DIR, f"{flyer_hash}.exc")
-
-        if os.path.exists(ocr_exc_path):
-            print(f"  Post {SEARCH_URL}/{post_id}: previous extraction failed, skipping")
-            continue
-
-        if not os.path.exists(ocr_json_path):
-            try:
-                print(f"Running OCR on {flyer_path}")
-                event = ocr_flyer(flyer_path)
-            except Exception:
-                with open(ocr_exc_path, "w", encoding="utf-8") as f:
-                    f.write(traceback.format_exc())
-                print(f"  Post {SEARCH_URL}/{post_id}: extraction failed, see {ocr_exc_path}")
-                continue
-            with open(ocr_json_path, "w", encoding="utf-8") as f:
-                f.write(json.dumps(event))
-
-        with open(ocr_json_path, "r", encoding="utf-8") as f:
-            event = json.loads(f.read())
-
-        # print(event)
-
+        event = ocr_flyer(flyer_path)
 
         # Tweak the event to read nicer:
 
@@ -229,10 +154,22 @@ def fetch_day(session, d, output_dir):
             event['description'] = event['description'][:500]
 
         # print(event)
+        #
+        # we know the date and timezone of these events, so impose that
+
+        tz = ZoneInfo("America/Montreal")
+
+        if event.get('date') and event.get('end_date'):
+            delta = event['end_date'] - event['date']
+            event['end_date'] = (d + delta)
+        event['date'] = d
+
+        for field in ['date','end_date']:
+            if event.get(field):
+                event[field] = event[field].replace(tzinfo=tz)
 
         # Build ICS
-        ics_content = build_ics(event, id=flyer_hash)
-        ics_content = redate_ics(ics_content, d, tzid="America/Montreal")
+        ics_content = make_ics(event)
 
         filename = f"{date_str}-{sanitize_title(event['title'])}.ics"
         output_path = os.path.join(output_dir, filename)
@@ -273,7 +210,6 @@ def main():
 
     os.makedirs(args.output_dir, exist_ok=True)
     os.makedirs(FLYERS_DIR, exist_ok=True)
-    os.makedirs(OCR_DIR, exist_ok=True)
 
     d = args.start
     while d <= args.end:
