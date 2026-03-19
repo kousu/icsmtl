@@ -149,13 +149,13 @@ def _ocr_flyer_uncached(
         - location: venue/address or null
         - price: price or null
         - url: URL or null
-        -
-        - description: Include other details like performers and special instructions using the ORIGINAL wording from the flyer. Keep the flyer's voice.
+        - performers: list[string] or null
+        - description: Include other details not included in the other fields using the ORIGINAL wording from the flyer. If there are no other details, leave it null.
 
         Rules:
         - Every event MUST have a title
         - Response must be ONLY valid, parseable JSON.
-        - Do NOT put the date, time, price or location in the description.
+        - Do NOT put the title, date, time, price, performers or location in the description.
         - Do NOT wrap the output in markdown code quotes.
         - Do NOT wrap the output in '```json'.
         - Do NOT include a preface nor summary.
