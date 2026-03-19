@@ -1,21 +1,18 @@
-import argparse
-import re
 import sys
-from contextlib import nullcontext
+import argparse
 from itertools import chain
 
 import icalendar
 
-PRODID = "-//icsmtl//catics//EN"
+PRODID = "-//icsmtl//ics-cat//EN"
 
+def cat(files):
+    cal = icalendar.Calendar()
+    cal["prodid"] = PRODID
+    for event in chain(*(icalendar.Calendar.from_ical(p).events for p in files)):
+        cal.add_component(event)
 
-def extract_vevents(ics_text):
-    """Extract all VEVENT blocks from an ICS string."""
-    return re.findall(
-        r"^BEGIN:VEVENT\r?\n.*?^END:VEVENT\r?\n",
-        ics_text,
-        re.DOTALL | re.MULTILINE,
-    )
+    return cal
 
 
 def main():
@@ -27,26 +24,9 @@ def main():
         nargs="*",
         help="Input .ics files",
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        default="-",
-        help="Output file (default: stdout)",
-    )
     args = parser.parse_args()
 
-    cal = icalendar.Calendar()
-    cal["prodid"] = PRODID
-    for event in chain(*(icalendar.Calendar.from_ical(p).events for p in args.inputs)):
-        cal.add_component(event)
-
-    if args.output == "-":
-        c = nullcontext(sys.stdout.buffer)
-    else:
-        c = open(args.output, "wb")
-
-    with c as fd:
-        fd.write(cal.to_ical())
+    sys.stdout.buffer.write(cat(args.inputs).to_ical()) # .buffer because icalendar works in bytes
 
 
 if __name__ == "__main__":
