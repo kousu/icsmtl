@@ -108,7 +108,14 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
         timeout=60,
     )
 
-    resp.raise_for_status()
+    if 'error' in resp.json():
+        # if anthropic told us details about what went wrong, use them
+        # TODO somehow include json.response()['error']['type'] without going overboard
+        raise Exception(resp.json()['error']['message'])
+    else:
+        # fall back to returning normal HTTP errors
+        resp.raise_for_status()
+
     return resp.json()["content"][0]["text"]
 
 
