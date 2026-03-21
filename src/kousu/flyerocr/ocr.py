@@ -1,4 +1,5 @@
 import os
+import io
 from pathlib import Path
 from typing import IO
 from textwrap import dedent
@@ -20,6 +21,8 @@ log = logging.getLogger(__name__)
 USER_AGENT = "icsmtl/0.1"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip().split("\n", 1)[0]
 CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "flyersocr")
+ANTHROPIC_MAX_IMAGE_SIZE = 5242880  # 5MB limit; this is on the *base64 encoded size*
+
 
 class NotEventError(ValueError):
     pass
@@ -35,6 +38,14 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
 
     image_data = _load_bytes(image)
+
+    if len(image_data) >= 6 / 8 * ANTHROPIC_MAX_IMAGE_SIZE:
+        # 3/4 is because this limit is on the *base64* encoded size. base64 encodes
+        # at 8 bits per 6 bits, so the actual image limit is smaller, about 3.5MB.
+        # in this case, shrink and re-encode as lossy JPG. If the image was so large
+        # it broke their limit it will still be legible even as a JPG.
+        image_data = cap_image_size(image_data, 6 / 8 * ANTHROPIC_MAX_IMAGE_SIZE)
+
     media_type = filetype.guess(image_data).mime
     supported = {"image/jpeg", "image/png", "image/gif", "image/webp"}
     if media_type not in supported:  # or .startswith("image/") ?
@@ -108,10 +119,10 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
         timeout=60,
     )
 
-    if 'error' in resp.json():
+    if "error" in resp.json():
         # if anthropic told us details about what went wrong, use them
         # TODO somehow include json.response()['error']['type'] without going overboard
-        raise Exception(resp.json()['error']['message'])
+        raise Exception(resp.json()["error"]["message"])
     else:
         # fall back to returning normal HTTP errors
         resp.raise_for_status()
@@ -282,3 +293,48 @@ def ocr_flyer(image: str | Path | bytes | IO[bytes], caption: str | None = None)
     log.debug(event)
 
     return event
+
+
+def cap_image_size(image, size, jpeg_quality=85):
+    """
+    Re-scale image as a JPG to <= size
+    """
+    from PIL import Image  # import *here* to avoid the import cost until it's needed
+
+    image = _load_bytes(image)
+    img = Image.open(io.BytesIO(image)).convert("RGB")
+
+    w, h = img.size
+
+    while True:
+        buffer = io.BytesIO()
+        shrunk = img.resize((w, h), Image.LANCZOS)
+        shrunk.save(buffer, format="JPEG", quality=jpeg_quality)
+        Size = buffer.tell()
+
+        if Size <= size:
+            return buffer.getvalue()
+
+        # In the given image (based on its inherent complexity) each pixel takes
+        # on average Size/(w*h). We want to have an image that's size large, though,
+        # If we scale both dimensions by some scale factor c and set:
+        # Size * c <= size
+        #        c <= size/Size
+        #
+        # If we pick c = size/Size * safety_margin ; (with 0 < margin < 1)
+        # then we will will satisfy this without losing too much detail.
+        # The safety_margin gives extra room in case our assumptions about the compressor aren't totally accurate.
+        #
+        # We then make the assumption that in the scaled image
+        # each pixel will still take Size/(w*h) bytes on average,
+        # and that we will scale it to keep the aspect ratio, so we scale width and
+        # height by the same value sqrt(c).
+        # Then the final size is
+        # approximate inherent complexity of the given image, which means the final size is
+        #    (Size)/(w*h) * (w*sqrt(c)) * (h*sqrt(c)) <= size
+        #    Size*c <= size
+        # as required
+        #
+        safety_margin = 0.95
+        c = size / Size * safety_margin
+        w, h = int(w * (c) ** (0.5)), int(h * (c) ** (0.5))
