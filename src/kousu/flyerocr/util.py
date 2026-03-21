@@ -4,6 +4,9 @@ import unicodedata
 from typing import IO, Tuple
 from types import NoneType
 from datetime import date, time, datetime, timedelta
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def sanitize_title(title):
