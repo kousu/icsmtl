@@ -275,23 +275,26 @@ def ocr_flyer(image: str | Path | bytes | IO[bytes], caption: str | None = None)
                 except ValueError as exc:
                     log.warn("Unable to parse %s '%s': %s", type.__name__, value, exc)
 
-    log.debug(event)
     # Fixup time
-    dtstart, dtend = interpret_datetime(
+    event["dtstart"], event["dtend"] = interpret_datetime(
         event.get("date"),
         event.get("end_date"),
         event.get("start_time"),
         event.get("end_time"),
     )
+    log.debug(
+        "Interpreted (%s,%s):(%s,%s) -> %s:%s",
+        event.get("date"),
+        event.get("start_time"),
+        event.get("end_date"),
+        event.get("end_time"),
+        event.get("dtstart"),
+        event.get("dtend"),
+    )
 
     for field in ["date", "end_date", "start_time", "end_time"]:
         if field in event:
             del event[field]
-
-    event["dtstart"] = dtstart
-    event["dtend"] = dtend
-
-    log.debug(event)
 
     return event
 
