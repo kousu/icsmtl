@@ -21,6 +21,9 @@ USER_AGENT = "icsmtl/0.1"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip().split("\n", 1)[0]
 CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "flyersocr")
 
+class NotEventError(ValueError):
+    pass
+
 
 def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -> str:
 
@@ -212,17 +215,20 @@ def _ocr_flyer_cached(
             raise exc
 
         with open(json_path, "w", encoding="utf-8") as fd:
+            log.info("Caching Claude's answer to %s", json_path)
             fd.write(event)
 
     try:
+        # try to parse
         event = json.loads(event)
     except Exception as exc:
-        raise Exception(f"Claude returned malformed json:\n\n{event}") from exc
-    event["id"] = flyer_hash
+        raise ValueError(f"Claude returned malformed json:\n\n{event}") from exc
 
     if not event.get("is_event", False) or not event.get("date"):
         desc = event.get("description", "")
-        raise ValueError("Not an event" + (f": {desc}" if desc else ""))
+        raise NotEventError(desc)
+
+    event["id"] = flyer_hash
 
     return event
 
