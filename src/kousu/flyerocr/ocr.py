@@ -15,6 +15,7 @@ from xdg.BaseDirectory import xdg_cache_home
 import requests  # TODO: httpx?
 
 from .util import _load_bytes, interpret_datetime
+from .datetime import date, time
 
 log = logging.getLogger(__name__)
 
