@@ -25,6 +25,9 @@ CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "flyersocr")
 ANTHROPIC_MAX_IMAGE_SIZE = 5242880  # 5MB limit; this is on the *base64 encoded size*
 
 
+class NotImageError(ValueError):
+    pass
+
 class NotEventError(ValueError):
     pass
 
@@ -37,24 +40,6 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
 
     if not ANTHROPIC_API_KEY:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    image_data = _load_bytes(image)
-
-    if len(image_data) >= 6 / 8 * ANTHROPIC_MAX_IMAGE_SIZE:
-        # 3/4 is because this limit is on the *base64* encoded size. base64 encodes
-        # at 8 bits per 6 bits, so the actual image limit is smaller, about 3.5MB.
-        # in this case, shrink and re-encode as lossy JPG. If the image was so large
-        # it broke their limit it will still be legible even as a JPG.
-        image_data = cap_image_size(image_data, 6 / 8 * ANTHROPIC_MAX_IMAGE_SIZE)
-
-    media_type = filetype.guess(image_data).mime
-    supported = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if media_type not in supported:  # or .startswith("image/") ?
-        raise ValueError(
-            f"Unsupported image type '{media_type}'. Must be one of: {supported}"
-        )
-
-    image_data = base64.standard_b64encode(image_data).decode("utf-8")
 
     if os.environ.get("DONT_ASK_CLAUDE"):
         return dedent("""
@@ -71,7 +56,29 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
               "description": "the first volume of an electronic club night that seeks to explore the relationship between partying and social interaction. honestly, we just want you to come and have a good time.\n\nwith dj sets by: sineila, billy bondage, online threat, fangsie, & sophia fay.\n\nhosts: ariane, zak, logan — your new best friends who are gonna help you meet your new best friend.\n\nAlso featuring: dollgrip, yt2mp3, thugdoll"
             }""")
 
-    # print(prompt)  # DEBUG
+    image_data = _load_bytes(image)
+
+    media_type = filetype.guess(image_data)
+    if not media_type or not media_type.mime.startswith("image/"):
+        raise NotImageError(*([media_type.mime] if media_type else []))
+    media_type = media_type.mime
+
+    # https://platform.claude.com/docs/en/build-with-claude/vision
+    supported = {"image/jpeg", "image/png", "image/gif", "image/webp"} # these are ... maybe
+    if (media_type not in supported) or (len(image_data) >= 6 / 8 * ANTHROPIC_MAX_IMAGE_SIZE):
+        # coerce to a supported format that fits within the limits
+        # (but only if necessary; rescaling unnecessarily will just lose fidelity)
+        #
+        # 6/8 is because this limit is on the *base64* encoded size. base64 encodes
+        # at 8 bits per 6 bits, so the actual image limit is smaller, about 3.5MB.
+        # in this case, shrink and re-encode as lossy JPG. If the image was so large
+        # it broke their limit it will still be legible even as a JPG.
+        #
+        # TODO: consider capping more aggressively, e.g. maybe maxing out at 500x500 px
+        # re: https://platform.claude.com/docs/en/build-with-claude/vision#calculate-image-costs
+        image_data = cap_image_size(image_data, 6 / 8 * ANTHROPIC_MAX_IMAGE_SIZE)
+
+    image_data = base64.standard_b64encode(image_data).decode("utf-8")
 
     # Current models (as of early 2026) -- see https://platform.claude.com/docs/en/about-claude/models/overview
     # Claude 4.6 family (latest):
