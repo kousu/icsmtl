@@ -24,6 +24,11 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip().split("\n", 1)[0]
 CACHE_DIR = os.path.join(xdg_cache_home, "kousu", "flyersocr")
 ANTHROPIC_MAX_IMAGE_SIZE = 5242880  # 5MB limit; this is on the *base64 encoded size*
 
+class ClaudeError(Exception):
+    pass
+
+class ClaudeAuth(ClaudeError):
+    pass
 
 class NotImageError(ValueError):
     pass
@@ -39,7 +44,7 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
     # the code looks almost identical. So no.
 
     if not ANTHROPIC_API_KEY:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+        raise ClaudeAuth("ANTHROPIC_API_KEY environment variable not set")
 
     if os.environ.get("DONT_ASK_CLAUDE"):
         return dedent("""
@@ -130,7 +135,10 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
     if "error" in resp.json():
         # if anthropic told us details about what went wrong, use them
         # TODO somehow include json.response()['error']['type'] without going overboard
-        raise Exception(resp.json()["error"]["message"])
+        err = resp.json()["error"]["message"]
+        if resp.status_code == 401:
+            raise ClaudeAuth(err)
+        raise Exception(err)
     else:
         # fall back to returning normal HTTP errors
         resp.raise_for_status()
@@ -234,7 +242,10 @@ def _ocr_flyer_cached(
         try:
             log.info("Asking Claude%s", (f" about {filename}" if filename else ""))
             event = _ocr_flyer_uncached(image, caption)
-        except Exception as exc:
+        except ClaudeAuth:
+            raise
+        except ClaudeError as exc:
+            # if *claude* errored, cache it to avoid eating credits unnecessarily if someone tries again
             with open(exc_path, "w") as fd:
                 print(f"{exc}", file=fd)
                 traceback.print_exc(file=fd)
