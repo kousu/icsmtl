@@ -17,6 +17,10 @@ import requests  # TODO: httpx?
 from .util import _load_bytes, interpret_datetime
 from .datetime import date, time
 
+## TODO:
+# - [ ] detect repeating events ('every Tuesday', 'MWF', 'Tuesdays from ...')
+
+
 log = logging.getLogger(__name__)
 
 USER_AGENT = "icsmtl/0.1"
