@@ -89,6 +89,8 @@ def ask_claude_about_image(image: str | Path | bytes | IO[bytes], prompt: str) -
 
     image_data = base64.standard_b64encode(image_data).decode("utf-8")
 
+    log.debug("Sending image to claude with prompt %s", prompt)
+
     # Current models (as of early 2026) -- see https://platform.claude.com/docs/en/about-claude/models/overview
     # Claude 4.6 family (latest):
     #   "claude-opus-4-6"              -- most capable, best reasoning
