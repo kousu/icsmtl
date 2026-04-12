@@ -19,7 +19,7 @@ PRODID = "-//flyerocr//EN"
 def make(event, length_limit=None):
     """Build a single-event VCALENDAR string."""
     # log.debug(event)
-    id = event.get("id") or str(uuid.uuid6())
+    id = event.get("id") or str(uuid.uuid4())
     summary = event.get("title")
     dtstart, dtend = event.get("dtstart"), event.get("dtend")
     description = event.get("description")
