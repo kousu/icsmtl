@@ -12,7 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 from xdg.BaseDirectory import xdg_cache_home
 
-from kousu.flyerocr.ocr import ocr_flyer
+from kousu.flyerocr.ocr import ocr_flyer, NotEventError
 from kousu.flyerocr.ics import save as save_ics
 from kousu.flyerocr.catics import cat as cat_ics
 
@@ -147,7 +147,12 @@ def fetch_day(session, d, output_dir):
 
         ## Do The OCR
         #
-        event = ocr_flyer(img_data, caption)
+        try:
+            event = ocr_flyer(img_data, caption)
+        except NotEventError:
+            breakpoint()
+            print(f"  Post {CHANNEL_URL}/{post_id}: ({flyer_path}) no event detected, skipping")
+            continue
 
         # Tweak the event to read better
         #
