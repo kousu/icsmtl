@@ -201,7 +201,7 @@ def _ocr_flyer_uncached(
         - Do NOT wrap the output in '```json'.
         - Do NOT include a preface nor summary.
 
-        {"<caption>{caption}</caption>" if caption else ""}
+        {f"<caption>{caption}</caption>" if caption else ""}
     """).lstrip(),
     )
 
