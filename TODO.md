@@ -41,6 +41,8 @@
     - https://huggingface.co/spaces/MrAltYT/FlyerDetection/blob/main/app.py
     - https://huggingface.co/spaces/tlogandesigns/image-text-compliance/blob/main/app.py
     - https://ente.io/ml/ has some tips; like, maybe try ONNX + ORT instead of ollama.
+- [ ] Grab `<meta property="og:image"` in scrapers that don't have better flyer image to use
+  - turns out this is very well supported across the web
 
 - integrate https://github.com/hawry/events-are-square
   - this is a parser for SquareSpace sites that generates .ics files; e.g. it can convert Turbohaus.ca/cal to ics
@@ -77,3 +79,4 @@
     - https://github.com/mikf/gallery-dl ? ( needs an insta account )
     - https://github.com/misiektoja/instagram_monitor ( needs an insta account )
     - load public pages in selenium?
+- [ ] https://agendadulibre.qc.ca/
