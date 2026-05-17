@@ -6,17 +6,27 @@ build-backend = "setuptools.build_meta"
 name = "icsmtl"
 version = "0.1.0"
 description = "A collection of scrapers that convert common web sources into .ics files"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
-    "beautifulsoup4",
-    "gql[requests]",
-    "lxml",
-    "pyxdg",
-    "requests",
+    "beautifulsoup4>=4.14.3",
+    "filetype>=1.2.0",
+    "gql[requests]>=4.0.0",
+    "icalendar>=7.0.3",
+    "lxml>=6.0.2",
+    "pillow>=11.0.0",
+    "pyxdg>=0.28",
+    "requests>=2.32.5",
 ]
 
 [project.scripts]
-catics = "icsmtl.catics:main"
-cultmtl = "icsmtl.cultmtl:main"
-meetup = "icsmtl.meetup:main"
-mtlrave-telegram = "icsmtl.mtlrave_telegram:main"
+# TODO: split flyerocr to a separate project
+flyerocr = "kousu.flyerocr.__main__:main"
+ics-cat = "kousu.flyerocr.catics:main"
+ics-cultmtl = "kousu.icsmtl.cultmtl:main"
+ics-meetup = "kousu.icsmtl.meetup:main"
+ics-mtlrave-telegram = "kousu.icsmtl.mtlrave_telegram:main"
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+]

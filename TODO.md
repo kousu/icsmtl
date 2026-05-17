@@ -2,13 +2,28 @@
 
 - [x] mtlrave: if link in caption, include in ics; if not, use the telegram post link
 - [x] mtlrave: trust the date from the TAG over the date from the OCR
+- [ ] mtlrave: add 'url' and 'price' fields to the scraper
+- [ ] venue spellcheck:
+  - keep a list of all seen venues and use it to correct the spelling
+  - search venues on google maps
+- [ ] mtlrave: feed the caption contents into the AI to improve its results
+  - this works either with the offline version where I first run OCR and then feed OCR's output into an interpreter AI
+  - but it probably works fine with the cloud version because honestly the cloud version is better at handling ambiguity and potentially conflicting information.
+- [ ] event de-duplicator
+  - HARD PROBLEM
+  - if we have scrapers for multiple sources it's very possible those sources will collide. How can we deduplicate?
+    - if there's a matching link in both then trust that
+    - do a text similarity analysis between the titles, dates and descriptions (e.g. something on the same date at the same venue is probably the same event; though not necessarrrrily)
+- [ ] mtlrave: if there's a link detected in the caption or the flyer, collect details from it instead
+  - we could add a bunch of special cases for the more popular ticketing sites e.g. ra.co, zeffy.com, square.com
 - [ ] lowercase the titles/descriptions from ocr_flyer() (maybe only if they're entirely uppercase?)
 - [ ] cultmtl: remove "The post ... first appeared on CultMTL"
-- [ ] event de-duplicator
 - [ ] consider embedding flyers into events via base64 URL encoding
+  - `IMAGE;VALUE=BINARY;ENCODING=BASE64;FMTTYPE=image/jpeg:<base64data>`
+  - see https://www.rfc-editor.org/rfc/rfc7986.html#section-5.10
 - [ ] meetup: "The YD Hootenany" isn't being scraped
 - [ ] preserve rich text in X-ALT-DESC;FMTTYPE=text/html field
-- [ ] Call OCR directly instead of bouncing through @omarieclaire's site
+- [x] Call OCR directly instead of bouncing through @omarieclaire's site
   - it is currently a call to Claude.ai's API; [here is the code](https://www.val.town/x/omarieclaire/image-to-cal/code/main.ts#L516)
     - call Gemini or ChatGPT's free version? Or bounce through OpenRouter.ai?
     - https://openrouter.ai/nvidia/llama-nemotron-embed-vl-1b-v2:free ?
@@ -25,6 +40,23 @@
     - https://huggingface.co/spaces/bp7274/Flyer_Extractor/blob/main/app.py
     - https://huggingface.co/spaces/MrAltYT/FlyerDetection/blob/main/app.py
     - https://huggingface.co/spaces/tlogandesigns/image-text-compliance/blob/main/app.py
+    - https://ente.io/ml/ has some tips; like, maybe try ONNX + ORT instead of ollama.
+- [ ] Grab `<meta property="og:image"` in scrapers that don't have better flyer image to use
+  - turns out this is very well supported across the web
+
+- integrate https://github.com/hawry/events-are-square
+  - this is a parser for SquareSpace sites that generates .ics files; e.g. it can convert Turbohaus.ca/cal to ics
+
+- [ ] set up [gancio](https://gancio.org/) as a dumping ground
+  - this is a bit ridiculous but maybe: one instance per scraped source (thus turning each source into a subscribable webcal at https://{source}.{mtlcalendarsdomain}/feed/ics)
+    - it has an import .ics feature; hopefully it can handle ignoring/updating already uploaded events
+  - and one META instance which makes heavy use of vCal CATEGORIES
+    - catics should learn to append a category
+  - someone owns https://montreal.events/ but they're not using it...
+  - patch gancio so that it supports ics RFC 7986 IMAGE (`IMAGE;VALUE=URI:https://example.com/photo.jpg`). SPECIFICALLY:
+    - on IMPORT it should DOWNLOAD the image to its local database
+      - it should support importing the image directly from base64, though I would prefer not to use that format if possible `IMAGE;ENCODING=BASE64;VALUE=BINARY;FMTTYPE=image/jpeg:<base64data>`
+    - on EXPORT it should write `IMAGE;VALUE=URI:https://{gancio-domain}/media/{fileid}.{format}` to the ics; even if most clients don't support it yet it'll be in there, and it can include a link to the event page so people can click
 
 ## Sources
 
@@ -35,3 +67,16 @@
 - [ ] https://montreal.ca/evenements
 - [x] https://www.meetup.com/yellowdoor/events/calendar
   - available direct at https://yellowdoor.org/feed/eo-events/
+- [ ] per-venue feeds scrapers for popular venues
+  - https://www.parquette.ca/en / instagram.com/@\_parquette
+  - https://casadelpopolo.com/en
+  - https://www.turbohaus.ca/cal
+    - https://www.turbohaus.ca/api/open/GetItemsByMonth?month=03-2026&collectionId=5514d06ce4b0cc915219770e&crumb=Bew%2B6P1qh6ATMmU4MjQ3ZDEwNzBkMWU1NDg5ZmZiNWE0MTI5ZGMw
+    - > provides all events in JSON, with fullUrl providing a link (though it's not a full URL, it's relative to the domain); andddd if you tack ?format=ical to the end of that URL you get a .ics (!)i
+    - however the .ics it gives doesn't contain a description, even though the non-?format=ical page _does_, so I guess we need to combine them?
+- [ ] Instagram
+  - Generic instagram scraper
+    - https://github.com/mikf/gallery-dl ? ( needs an insta account )
+    - https://github.com/misiektoja/instagram_monitor ( needs an insta account )
+    - load public pages in selenium?
+- [ ] https://agendadulibre.qc.ca/
